@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KryptoniteUserStory",
+  "description": "Schema for a fully specified user story or spike in the kryptonite workflow. Every item must conform to this schema before the spec can be generated.",
+  "type": "object",
+  "required": [
+    "id",
+    "type",
+    "party",
+    "statement",
+    "acceptance_criteria",
+    "definition_of_done",
+    "priority",
+    "dependencies",
+    "estimated_complexity"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^US-\\d{3,}$",
+      "description": "Unique story identifier, e.g. US-001"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["feature", "spike"],
+      "description": "feature = standard implementation story. spike = research task that produces knowledge/decisions to inform other stories. Spikes must run before the stories that depend on them."
+    },
+    "party": {
+      "type": "string",
+      "description": "The actor/role this story belongs to (must match a defined party from Phase 4). For spikes, use 'system' or the party most relevant to the research."
+    },
+    "statement": {
+      "type": "object",
+      "required": ["as_a", "i_want", "so_that"],
+      "properties": {
+        "as_a": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The actor role, e.g. 'admin'. For spikes: 'developer' or 'team'."
+        },
+        "i_want": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The action/capability desired. For spikes: the research question."
+        },
+        "so_that": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The motivation/business value. For spikes: what decision this unblocks."
+        }
+      },
+      "additionalProperties": false
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Testable conditions. For features: verifiable behaviors. For spikes: questions that must be answered."
+    },
+    "definition_of_done": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["description", "validation"],
+        "properties": {
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What must be true for this item to pass."
+          },
+          "validation": {
+            "type": "object",
+            "required": ["method"],
+            "properties": {
+              "method": {
+                "type": "string",
+                "enum": ["curl", "chrome_mcp", "test_suite", "file_exists"],
+                "description": "How to verify this DOD item. curl = HTTP request check. chrome_mcp = browser-based verification. test_suite = run test command. file_exists = check a file was produced (for spikes)."
+              },
+              "command": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "description": "The exact command or URL to run for verification. Use ${APP_URL} as base URL placeholder. e.g. 'curl -s -o /dev/null -w %{http_code} ${APP_URL}/api/users' or 'npm test -- --grep US-001'"
+                  },
+                  {
+                    "type": "array",
+                    "description": "Structured steps for chrome_mcp validation. Each step is an action object.",
+                    "items": {
+                      "type": "object",
+                      "required": ["action"],
+                      "properties": {
+                        "action": {
+                          "type": "string",
+                          "enum": ["navigate", "click", "fill", "assert_text", "assert_count", "assert_visible", "assert_url", "screenshot"]
+                        },
+                        "url": { "type": "string" },
+                        "selector": { "type": "string" },
+                        "value": { "type": "string" },
+                        "contains": { "type": "string" },
+                        "equals": { "type": "string" },
+                        "min": { "type": "integer" },
+                        "max": { "type": "integer" },
+                        "exact": { "type": "integer" },
+                        "name": { "type": "string" }
+                      }
+                    }
+                  }
+                ]
+              },
+              "expect": {
+                "type": "string",
+                "description": "Expected result. e.g. '201', 'PASS', 'file exists', or a pattern to match."
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Concrete, verifiable items that define completion. Each item includes HOW to validate it automatically. If an item cannot be validated via curl, chrome_mcp, test_suite, or file_exists, it must be rewritten until it can."
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"],
+      "description": "Business priority. Critical = blocks other work or is a launch requirement. High = important for MVP. Medium = desirable. Low = nice to have."
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^US-\\d{3,}$"
+      },
+      "description": "List of story IDs that must be completed before this story can be implemented. Spikes that inform a story must be listed as dependencies. Empty array if no dependencies."
+    },
+    "estimated_complexity": {
+      "type": "string",
+      "enum": ["trivial", "simple", "moderate", "complex", "very_complex"],
+      "description": "Implementation complexity estimate. Trivial = config change or one-liner. Simple = single file, clear path. Moderate = multiple files, some decisions. Complex = cross-cutting, multiple components. Very complex = architectural changes or novel problems."
+    },
+    "has_mock": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this story has a UI component that needs a visual mockup. Set to true during Phase 5 for stories with user-facing UI. Mock files are stored at .kryptonite/{EPIC}/mocks/{id}.html and .kryptonite/{EPIC}/mocks/{id}.png"
+    },
+    "mock_approved": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the mock for this story has been approved by the user."
+    },
+    "amended": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this story was modified after plan approval. Set to true when acceptance_criteria or definition_of_done are changed during execution."
+    },
+    "amendment_history": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "required": ["changed_at", "fields_changed", "reason"],
+        "properties": {
+          "changed_at": {
+            "type": "string",
+            "description": "ISO timestamp of when the amendment was made"
+          },
+          "fields_changed": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Which fields were modified, e.g. ['acceptance_criteria', 'definition_of_done']"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why the amendment was needed"
+          }
+        }
+      },
+      "description": "History of amendments made to this story after plan approval."
+    }
+  },
+  "additionalProperties": false
+}

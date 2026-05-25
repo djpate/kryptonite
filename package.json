@@ -1,0 +1,22 @@
+{
+  "name": "kryptonite",
+  "version": "0.1.0",
+  "description": "Spec-driven development for Claude Code — structured user stories, automated DOD validation, multi-agent parallel execution",
+  "type": "module",
+  "author": "djpate",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/djpate/kryptonite"
+  },
+  "keywords": [
+    "claude-code",
+    "plugin",
+    "spec",
+    "user-stories",
+    "tdd",
+    "multi-repo",
+    "planning",
+    "agents"
+  ]
+}

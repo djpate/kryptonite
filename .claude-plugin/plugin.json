@@ -1,0 +1,12 @@
+{
+  "name": "kryptonite",
+  "description": "Spec-driven development — structured user stories, automated DOD validation, multi-agent parallel execution with state machine enforcement.",
+  "version": "0.1.0",
+  "author": {
+    "name": "djpate"
+  },
+  "repository": "https://github.com/djpate/kryptonite",
+  "license": "MIT",
+  "keywords": ["spec", "user-stories", "tdd", "multi-repo", "planning", "agents"],
+  "skills": ["./skills/kryptonite", "./skills/repos"]
+}

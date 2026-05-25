@@ -1,0 +1,14 @@
+{
+  "name": "kryptonite",
+  "description": "Spec-driven development plugin for Claude Code with multi-agent execution",
+  "owner": {
+    "name": "djpate"
+  },
+  "plugins": [
+    {
+      "name": "kryptonite",
+      "source": "./",
+      "description": "Spec-driven development — 12-phase workflow from idea to implementation with automated DOD validation, multi-repo support, and parallel agent execution."
+    }
+  ]
+}
