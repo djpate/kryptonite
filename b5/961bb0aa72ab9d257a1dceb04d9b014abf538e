@@ -1,0 +1,29 @@
+package.json
+  s_67a7aa62950437::t_5a1a4ed09d7d54 4-21
+.claude-plugin/plugin.json
+  s_67a7aa62950437::t_5b518be121bae1 3-10
+CHANGELOG.md
+  s_67a7aa62950437::t_fcf293481132f9 1-69
+README.md
+  s_67a7aa62950437::t_133b5d31f51a03 1-119
+.gitignore
+  s_67a7aa62950437::t_89c4286698c5ff 1-3
+.claude-plugin/marketplace.json
+  s_67a7aa62950437::t_5f959642f81a50 2-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "b5961bb0aa72ab9d257a1dceb04d9b014abf538e",
+  "prompts": {},
+  "sessions": {
+    "s_67a7aa62950437": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ccc3905a-0ccd-4e2c-9402-511c4bd3543c",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
