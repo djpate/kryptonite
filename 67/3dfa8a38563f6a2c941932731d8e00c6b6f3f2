@@ -1,0 +1,19 @@
+README.md
+  s_87e222af04e566::t_c46c5bf436c6d6 14,20,22,24-30,32,56-72,74,76,78,80-84,86,88,90,92,94,96-122,124,126-134,142-146,148
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "673dfa8a38563f6a2c941932731d8e00c6b6f3f2",
+  "prompts": {},
+  "sessions": {
+    "s_87e222af04e566": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "53a8e9e7-8be7-4610-aecd-f3ec9935a71c",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
