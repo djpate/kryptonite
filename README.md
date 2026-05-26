@@ -40,89 +40,6 @@ You describe what you want to build. Kryptonite interviews you, identifies gaps,
 
 ---
 
-## How It Works
-
-```mermaid
-graph TD
-    subgraph GATHER ["Requirements Gathering"]
-        P1["1. General Description"]
-        P2["2. Story Braindump"]
-        P3["3. Gap Analysis"]
-        P4["4. Party Definition"]
-    end
-
-    subgraph RESEARCH ["Research & Scope"]
-        P5["5. Spikes"]
-        P6["6. Re-scope"]
-        P7["7. Technical Guidance"]
-    end
-
-    subgraph SPEC ["Specification"]
-        P8["8. DOD & Mocks"]
-        P9{"9. Schema Validation"}
-        P10["10. Spec Generation"]
-        P11["11. Implementation Plan"]
-    end
-
-    subgraph EXEC ["Execution"]
-        P12["12. Parallel Agent Dispatch"]
-    end
-
-    P1 --> P2 --> P3 --> P4
-    P4 --> P5 --> P6 --> P7
-    P7 --> P8 --> P9
-    P9 -->|Pass| P10 --> P11
-    P9 -->|Fail| P8
-    P11 --> P12
-```
-
----
-
-## Agent Architecture
-
-```mermaid
-graph LR
-    O["Orchestrator"]
-
-    subgraph interview ["Phases 1-11"]
-        I["Interviewer"]
-    end
-
-    subgraph exec ["Phase 12 — Dispatched"]
-        R["Researcher"]
-        D["Designer"]
-        C["Coder"]
-        Q["QA"]
-        RV["Reviewer"]
-    end
-
-    subgraph gates ["Quality Gates"]
-        SC["Spec Critic"]
-        PC["Plan Critic"]
-    end
-
-    O --> I
-    O --> R & D & C
-    C --> Q --> RV
-    Q -->|Fail| C
-    RV -->|Reject| C
-    O --> SC & PC
-```
-
-| Agent | Role |
-|:------|:-----|
-| **Orchestrator** | Coordinates everything, enforces the state machine |
-| **Interviewer** | Guides Phases 1-11 — one question at a time |
-| **Designer** | Visual mockups with progressive direction locking |
-| **Researcher** | Spike execution, produces decision documents |
-| **Coder** | TDD implementation, repo-aware, commits per story |
-| **QA** | Automated DOD validation + per-wave UAT |
-| **Reviewer** | Spec compliance + code quality review |
-| **Spec Critic** | Reviews spec for gaps, contradictions, weak DODs |
-| **Plan Critic** | Reviews plan for conflicts, ordering, infra gaps |
-
----
-
 ## Quick Start
 
 ### Install
@@ -177,6 +94,93 @@ During execution (Phase 12), stories can be updated without restarting. The stat
 | State | Lost between sessions | Persistent state with exact-phase resume |
 
 ---
+
+<details>
+<summary><strong>How It Works — 12-Phase Workflow</strong></summary>
+<br/>
+
+```mermaid
+graph TD
+    subgraph GATHER ["Requirements Gathering"]
+        P1["1. General Description"]
+        P2["2. Story Braindump"]
+        P3["3. Gap Analysis"]
+        P4["4. Party Definition"]
+    end
+
+    subgraph RESEARCH ["Research & Scope"]
+        P5["5. Spikes"]
+        P6["6. Re-scope"]
+        P7["7. Technical Guidance"]
+    end
+
+    subgraph SPEC ["Specification"]
+        P8["8. DOD & Mocks"]
+        P9{"9. Schema Validation"}
+        P10["10. Spec Generation"]
+        P11["11. Implementation Plan"]
+    end
+
+    subgraph EXEC ["Execution"]
+        P12["12. Parallel Agent Dispatch"]
+    end
+
+    P1 --> P2 --> P3 --> P4
+    P4 --> P5 --> P6 --> P7
+    P7 --> P8 --> P9
+    P9 -->|Pass| P10 --> P11
+    P9 -->|Fail| P8
+    P11 --> P12
+```
+
+</details>
+
+<details>
+<summary><strong>Agent Architecture</strong></summary>
+<br/>
+
+```mermaid
+graph LR
+    O["Orchestrator"]
+
+    subgraph interview ["Phases 1-11"]
+        I["Interviewer"]
+    end
+
+    subgraph exec ["Phase 12 — Dispatched"]
+        R["Researcher"]
+        D["Designer"]
+        C["Coder"]
+        Q["QA"]
+        RV["Reviewer"]
+    end
+
+    subgraph gates ["Quality Gates"]
+        SC["Spec Critic"]
+        PC["Plan Critic"]
+    end
+
+    O --> I
+    O --> R & D & C
+    C --> Q --> RV
+    Q -->|Fail| C
+    RV -->|Reject| C
+    O --> SC & PC
+```
+
+| Agent | Role |
+|:------|:-----|
+| **Orchestrator** | Coordinates everything, enforces the state machine |
+| **Interviewer** | Guides Phases 1-11 — one question at a time |
+| **Designer** | Visual mockups with progressive direction locking |
+| **Researcher** | Spike execution, produces decision documents |
+| **Coder** | TDD implementation, repo-aware, commits per story |
+| **QA** | Automated DOD validation + per-wave UAT |
+| **Reviewer** | Spec compliance + code quality review |
+| **Spec Critic** | Reviews spec for gaps, contradictions, weak DODs |
+| **Plan Critic** | Reviews plan for conflicts, ordering, infra gaps |
+
+</details>
 
 <details>
 <summary><strong>State Machine & Execution Loop</strong></summary>
