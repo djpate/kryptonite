@@ -11,32 +11,25 @@
   [![Version](https://img.shields.io/badge/version-0.1.0-10b981?style=flat-square)](https://github.com/djpate/kryptonite/releases)
   [![License: MIT](https://img.shields.io/badge/license-MIT-64748b?style=flat-square)](LICENSE)
   [![Agents](https://img.shields.io/badge/agents-9-6366f1?style=flat-square)](#agent-architecture)
-  [![Phases](https://img.shields.io/badge/phases-12-f59e0b?style=flat-square)](#how-it-works)
+  [![Phases](https://img.shields.io/badge/phases-12-f59e0b?style=flat-square)](#how-it-works--12-phase-workflow)
 
 </div>
 
 <br/>
 
-You describe what you want to build. Kryptonite interviews you, identifies gaps, runs research spikes, generates a branded spec with inline commenting, plans parallel execution waves, then dispatches specialized agents to implement — with automated DOD validation that won't let anything pass without proof.
+## What Happens When You Use Kryptonite
 
-> **Think:** Project management on steroids for AI-assisted development.
+You tell Claude Code what you want to build — in plain language, no special format. Kryptonite takes over and interviews you: one question at a time, it pulls out everything it needs to understand the project. What the system does, who uses it, what can go wrong, what you're unsure about.
 
----
+When it hits something uncertain — "which payment provider?", "can we handle the load?", "how does that API actually work?" — it doesn't guess. It creates **spikes**: focused research tasks that run immediately. Researcher agents investigate, produce findings, and bring answers back before any planning begins. You decide what to keep, what to cut, and what changes based on what was learned.
 
-## Key Features
+Once your stories are solid, it writes a **Definition of Done** for every single one — not vague acceptance criteria, but concrete automated checks. "POST /tickets returns 201" verified by curl. "The ticket appears in the customer's list" verified by Chrome. Every DOD item must be provably testable.
 
-| | Feature | What It Means |
-|:---:|:---|:---|
-| 🔄 | **12-Phase Workflow** | Structured path from "I want to build X" to deployed code |
-| 🤖 | **9 Specialized Agents** | Each agent has a single job and does it well |
-| ✅ | **Automated DOD Validation** | Every story proven done via curl, Chrome MCP, or test suite |
-| 🔒 | **State Machine Enforcement** | Stories cannot skip QA or review — invariants enforced on every write |
-| 📦 | **Multi-Repo Support** | Epics span multiple repos with cross-repo auto-splitting |
-| 🔬 | **Spike-First Research** | Questions answered before DODs are written — no scope explosions |
-| 🎨 | **Visual Mocks + Compare** | Side-by-side mock comparison with click-to-pick |
-| 💬 | **Branded Comment Server** | Inline commenting on spec/plan at localhost:3847 |
-| 🔁 | **Persistent State** | Resume any epic across sessions — picks up exactly where you left off |
-| ⚡ | **Parallel Execution** | Independent stories run simultaneously within waves |
+It generates a branded HTML spec you can review and comment on inline in your browser. A **Spec Critic** agent reviews it for gaps before you even see it. Same for the implementation plan — a **Plan Critic** checks for conflicts and ordering issues first. You review, leave comments, iterate until it's right.
+
+Then execution: stories are grouped into **waves** (parallel batches ordered by dependency). For each story, a Coder agent implements it, a QA agent runs every DOD check automatically, and a Reviewer agent verifies quality. If anything fails, it loops back — no story is marked done without passing every gate. After each wave, the QA agent drives through real user flows in the browser to verify integration.
+
+Close your laptop, come back days later, say "let's build" — Kryptonite reads where you left off and continues from that exact phase. Nothing is lost between sessions.
 
 ---
 
@@ -56,39 +49,89 @@ Say any of these to Claude Code:
 
 Or just describe what you want to build — Kryptonite activates automatically.
 
-> [!TIP]
-> Manage your repo registry independently with:
-> <kbd>add a repo</kbd>&nbsp;&nbsp;<kbd>list repos</kbd>&nbsp;&nbsp;<kbd>manage repos</kbd>
-
 ---
 
 ## Usage
 
-### Starting a new epic
+### The Interview
 
-Just describe what you want to build. Kryptonite creates a `.kryptonite/` directory in your project root and walks you through all 12 phases — one question at a time. You'll define parties, dump stories, run research spikes, approve mocks, and review the spec before any code is written.
+Kryptonite asks you to describe the big picture, then invites you to dump all your user stories in whatever format you like — bullet points, paragraphs, half-formed thoughts. It accumulates silently, then probes gaps one at a time: missing error cases, incomplete flows, ambiguous scope, actors that need stories but don't have them. It identifies the **parties** (actors) in your system — Admin, User, System — and confirms boundaries and permissions with you.
 
-### Resuming an epic
+You don't need to know agile methodology. Just talk about what you want built and who needs to do what.
 
-Start a new Claude Code session and trigger kryptonite. It detects your `.kryptonite/active` file, reads `current_phase` from `epic.json`, and picks up exactly where you left off — no context is lost between sessions.
+### Spikes (Research Before Planning)
 
-### Starting over / new epic
+This is where Kryptonite diverges from typical AI coding tools. When there's an open question that would affect how you build — which library to use, whether a third-party API supports what you need, how a regulation works, whether an approach is feasible at scale — Kryptonite creates a **spike**.
 
-Say <kbd>new epic</kbd> or <kbd>start a new project</kbd>. The current epic is archived (status set to `completed`) and a fresh one begins. Your `repos.json` persists across epics — no need to re-register repos.
+Spikes are research tasks that execute immediately via Researcher agents. They produce decision documents with recommendations. After spikes return, you enter a **re-scope** phase: the findings might add stories, remove them, change the approach, or confirm the original plan. You decide — Kryptonite won't silently expand your project based on research findings.
 
-### Managing repos
+This happens BEFORE DODs are written, before the spec exists, before any planning. It prevents the classic problem of building a detailed plan around assumptions that turn out to be wrong.
 
-Kryptonite is multi-repo aware. Before execution, register the repos your project spans:
+### Multi-Repo Projects
 
-<kbd>add a repo</kbd>&nbsp;&nbsp;<kbd>list repos</kbd>&nbsp;&nbsp;<kbd>remove repo</kbd>&nbsp;&nbsp;<kbd>update repo</kbd>
+Most real projects span multiple repos — an API, a frontend, maybe an admin panel or a shared library. Kryptonite handles this natively.
 
-When you add a repo by path, Kryptonite auto-detects the stack, run command, and test command from the repo's files (`package.json`, `Gemfile`, `go.mod`, `Cargo.toml`, etc.) and asks you to confirm. The registry lives at `.kryptonite/repos.json` and persists across all epics — define your repos once, reference them by name in any story.
+Register your repos once using the **repos** skill:
 
-Each repo entry includes a free-form `testing_notes` field where you can stash credentials, URLs, seed commands, API keys — anything agents need when working in that repo.
+<kbd>add a repo</kbd>&nbsp;&nbsp;<kbd>list repos</kbd>&nbsp;&nbsp;<kbd>update repo</kbd>&nbsp;&nbsp;<kbd>remove repo</kbd>
 
-### Mid-flow amendments
+When you point Kryptonite at a repo path, it auto-detects the stack, run command, and test command from the repo's files (`package.json`, `Gemfile`, `go.mod`, `Cargo.toml`, `Makefile`, etc.) and asks you to confirm.
 
-During execution (Phase 12), stories can be updated without restarting. The state machine tracks amendment history and re-validates affected DODs automatically.
+Each repo entry stores:
+- **Path** and **stack** — so agents know where to work and what tools are available
+- **Run command** — so QA can start the service for testing
+- **Test command** — so the test suite can be executed
+- **Testing notes** — free-form field for credentials, URLs, seed commands, API keys, anything agents need
+
+Stories get assigned to a specific repo. If a story touches multiple repos (e.g., an API endpoint AND the frontend that consumes it), Kryptonite **auto-splits** it into linked sub-stories — `US-005a` (API) depends on nothing, `US-005b` (frontend) depends on `US-005a`. Each gets its own DOD validated against its own repo.
+
+The registry persists across epics at `.kryptonite/repos.json` — define your repos once, use them in every project.
+
+### The Spec & Plan
+
+Once stories, spikes, and DODs are complete, Kryptonite generates a branded HTML spec served at `http://localhost:3847`. You can click any section to leave inline comments. A live dashboard at `/dashboard` shows progress, and a mock gallery at `/mocks` shows approved visual mockups.
+
+Before you see the spec, a **Spec Critic** agent reviews it for: missing dependencies, weak DODs, contradictions, cross-repo contract mismatches. If it finds issues, they're fixed before the spec reaches you.
+
+The implementation plan groups stories into waves — parallel batches where no story conflicts with another in the same wave, and all dependencies are in earlier waves. A **Plan Critic** reviews the plan for: file conflicts between parallel stories, missing infrastructure, unrealistic breakdowns, and ordering issues.
+
+You approve (or comment and iterate on) both the spec and plan before execution begins.
+
+### Execution
+
+Stories execute wave by wave. Within each wave, independent stories run in parallel via dispatched Coder agents. Every story goes through three gates:
+
+1. **Coder** — implements the story using TDD, commits to the story's assigned repo
+2. **QA** — runs every DOD validation command automatically (curl, Chrome MCP, test suite, file checks). ALL must pass.
+3. **Reviewer** — checks spec compliance and code quality
+
+If QA fails → loops back to Coder with failure details. If Reviewer rejects → loops back to Coder with fix list, then re-runs QA. A story cannot reach "done" unless both QA passes AND Reviewer approves — this is enforced by invariants checked on every state write, not by convention.
+
+After each wave completes, QA runs **User Acceptance Testing** — driving through the app as real users via Chrome, testing that cross-story flows actually work end-to-end (not just individual DODs). For multi-repo projects, UAT starts all relevant services and tests the integration between them.
+
+After 3 failed QA/Review cycles on the same story, Kryptonite pauses and asks you to intervene.
+
+### Resuming & Restarting
+
+**Resume:** Start a new Claude Code session and trigger Kryptonite. It detects `.kryptonite/active`, reads `current_phase` from `epic.json`, and picks up exactly where you left off.
+
+**New epic:** Say <kbd>new epic</kbd> or <kbd>start a new project</kbd>. The current epic is archived and a fresh one begins. Your repo registry persists.
+
+**Amendments:** During execution, story requirements can change. The state machine tracks amendment history, marks affected stories for re-validation, and adjusts wave ordering if new dependencies emerge — no full restart needed.
+
+---
+
+## Key Concepts
+
+| Term | Meaning |
+|:-----|:--------|
+| **Epic** | A self-contained project or feature set. One active at a time, archived when complete. |
+| **Party** | An actor in the system — Admin, User, System, External Service. Kryptonite identifies these from your stories. |
+| **Spike** | A research task that executes before planning. Answers unknowns so you don't plan around assumptions. |
+| **DOD** | Definition of Done — concrete, automatable proof. Not "it works" but specific commands with expected outputs. |
+| **Wave** | A batch of stories that can execute in parallel. Ordered by dependency — no wave runs until the previous one passes. |
+| **State Machine** | The enforcement layer: pending → in_progress → qa_validation → in_review → done. Steps cannot be skipped. |
+| **UAT** | User Acceptance Testing — end-to-end flow testing via Chrome after each wave, beyond individual DOD checks. |
 
 ---
 
@@ -96,12 +139,13 @@ During execution (Phase 12), stories can be updated without restarting. The stat
 
 | Concern | Typical AI Coding | Kryptonite |
 |:--------|:-----------------|:-----------|
-| Requirements | "Just build it" | 12-phase structured gathering |
-| Validation | Trust the AI | Automated DOD proof (curl, tests, Chrome MCP) |
-| Quality gates | None | QA + Reviewer must both approve |
-| Multi-repo | One file at a time | Cross-repo auto-split with dependency tracking |
-| Research | Hope for the best | Spike-first workflow before planning |
+| Requirements | "Just build it" | 12-phase structured interview, one question at a time |
+| Unknowns | Hope for the best | Spikes execute research immediately, findings shape the plan |
+| Validation | Trust the AI | Every DOD item proven by curl, Chrome MCP, or test suite |
+| Quality gates | None | QA + Reviewer must both approve — enforced by state invariants |
+| Multi-repo | One file at a time | Cross-repo auto-split with dependency tracking and per-repo QA |
 | State | Lost between sessions | Persistent state with exact-phase resume |
+| Scope creep | Uncontrolled growth | Re-scope phase after spikes — user decides what stays |
 
 ---
 
