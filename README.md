@@ -76,6 +76,16 @@ Start a new Claude Code session and trigger kryptonite. It detects your `.krypto
 
 Say <kbd>new epic</kbd> or <kbd>start a new project</kbd>. The current epic is archived (status set to `completed`) and a fresh one begins. Your `repos.json` persists across epics — no need to re-register repos.
 
+### Managing repos
+
+Kryptonite is multi-repo aware. Before execution, register the repos your project spans:
+
+<kbd>add a repo</kbd>&nbsp;&nbsp;<kbd>list repos</kbd>&nbsp;&nbsp;<kbd>remove repo</kbd>&nbsp;&nbsp;<kbd>update repo</kbd>
+
+When you add a repo by path, Kryptonite auto-detects the stack, run command, and test command from the repo's files (`package.json`, `Gemfile`, `go.mod`, `Cargo.toml`, etc.) and asks you to confirm. The registry lives at `.kryptonite/repos.json` and persists across all epics — define your repos once, reference them by name in any story.
+
+Each repo entry includes a free-form `testing_notes` field where you can stash credentials, URLs, seed commands, API keys — anything agents need when working in that repo.
+
 ### Mid-flow amendments
 
 During execution (Phase 12), stories can be updated without restarting. The state machine tracks amendment history and re-validates affected DODs automatically.
