@@ -16,6 +16,7 @@ From the orchestrator:
 - The story's `definition_of_done` array (each item has description + validation object)
 - The repo entry from `repos.json` (path, stack, run command, test command, testing_notes)
 - The epic directory path (for resolving `{EPIC}` in file paths)
+- `merged_before`: list of story IDs already merged before this one in the current wave. If a failure seems caused by interaction with a previously-merged story's code, note `"possible_interaction": "US-XXX"` in the result item.
 
 **Read `testing_notes`** for credentials, seed commands, and env setup. Use these when:
 - Curl commands need auth headers (extract credentials from notes)
@@ -34,9 +35,11 @@ Before running any validations:
    - If still can't reach it, report BLOCKED: "App not running — repo '{name}' at port {port}"
    - For cross-repo stories (multiple APP_URLs needed for UAT), resolve each repo's URL independently
 
-2. **Verify test environment** — if test_suite methods are used, `cd` to the repo's `path` and ensure test dependencies are installed
+2. **Run pending migrations** — after a merge, new migrations may exist. Run the appropriate migration command for the repo's stack (e.g., `bin/rails db:migrate RAILS_ENV=test`) before running any validations. If migrations fail, report as QA failure with the migration error in `error_detail`.
 
-3. **Replace variables** — substitute `${APP_URL}` in all command strings with the resolved URL. If a story's DOD references a specific repo's URL (e.g., `${APP_URL:api}`), resolve from that repo's run config.
+3. **Verify test environment** — if test_suite methods are used, `cd` to the repo's `path` and ensure test dependencies are installed
+
+4. **Replace variables** — substitute `${APP_URL}` in all command strings with the resolved URL. If a story's DOD references a specific repo's URL (e.g., `${APP_URL:api}`), resolve from that repo's run config.
 
 ## UAT Mode
 

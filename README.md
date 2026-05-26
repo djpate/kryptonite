@@ -27,7 +27,7 @@ Once your stories are solid, it writes a **Definition of Done** for every single
 
 It generates a branded HTML spec you can review and comment on inline in your browser. A **Spec Critic** agent reviews it for gaps before you even see it. Same for the implementation plan — a **Plan Critic** checks for conflicts and ordering issues first. You review, leave comments, iterate until it's right.
 
-Then execution: stories are grouped into **waves** (parallel batches ordered by dependency). For each story, a Coder agent implements it, a QA agent runs every DOD check automatically, and a Reviewer agent verifies quality. If anything fails, it loops back — no story is marked done without passing every gate. After each wave, the QA agent drives through real user flows in the browser to verify integration.
+Then execution: stories are grouped into **waves** (parallel batches ordered by dependency). Within each wave, Coder agents work in parallel on isolated git worktrees — no database conflicts, no migration stomping. As each finishes, the orchestrator merges and tests serially: QA runs every DOD check, Reviewer verifies quality. If anything fails, it loops back — no story is marked done without passing every gate. After each wave, the QA agent drives through real user flows in the browser to verify integration.
 
 Close your laptop, come back days later, say "let's build" — Kryptonite reads where you left off and continues from that exact phase. Nothing is lost between sessions.
 
@@ -99,13 +99,14 @@ You approve (or comment and iterate on) both the spec and plan before execution 
 
 ### Execution
 
-Stories execute wave by wave. Within each wave, independent stories run in parallel via dispatched Coder agents. Every story goes through three gates:
+Stories execute wave by wave using **worktree isolation** — parallel coding without database conflicts:
 
-1. **Coder** — implements the story using TDD, commits to the story's assigned repo
-2. **QA** — runs every DOD validation command automatically (curl, Chrome MCP, test suite, file checks). ALL must pass.
-3. **Reviewer** — checks spec compliance and code quality
+1. **Parallel coding** — independent stories in a wave are dispatched to Coder agents simultaneously, each in its own git worktree on an isolated branch. Coders write code and tests but do NOT run specs — no shared database access, no migration conflicts.
+2. **Serial merge + test** — as each Coder finishes (first-done-first-merged), the orchestrator merges its branch into main one at a time, runs migrations, then dispatches the verification pipeline:
+   - **QA** — runs every DOD validation command (curl, Chrome MCP, test suite, file checks). ALL must pass.
+   - **Reviewer** — checks spec compliance and code quality
 
-If QA fails → loops back to Coder with failure details. If Reviewer rejects → loops back to Coder with fix list, then re-runs QA. A story cannot reach "done" unless both QA passes AND Reviewer approves — this is enforced by invariants checked on every state write, not by convention.
+If a merge conflicts, the Coder is re-dispatched on main to apply its changes manually. If QA fails → loops back to Coder (on main) with failure details. If Reviewer rejects → loops back to Coder with fix list, then re-runs QA. A story cannot reach "done" unless both QA passes AND Reviewer approves — this is enforced by invariants checked on every state write, not by convention.
 
 After each wave completes, QA runs **User Acceptance Testing** — driving through the app as real users via Chrome, testing that cross-story flows actually work end-to-end (not just individual DODs). For multi-repo projects, UAT starts all relevant services and tests the integration between them.
 
@@ -143,6 +144,7 @@ After 3 failed QA/Review cycles on the same story, Kryptonite pauses and asks yo
 | Unknowns | Hope for the best | Spikes execute research immediately, findings shape the plan |
 | Validation | Trust the AI | Every DOD item proven by curl, Chrome MCP, or test suite |
 | Quality gates | None | QA + Reviewer must both approve — enforced by state invariants |
+| Parallel agents | DB conflicts, migration stomping | Worktree isolation — parallel code, serial merge+test |
 | Multi-repo | One file at a time | Cross-repo auto-split with dependency tracking and per-repo QA |
 | State | Lost between sessions | Persistent state with exact-phase resume |
 | Scope creep | Uncontrolled growth | Re-scope phase after spikes — user decides what stays |
@@ -176,7 +178,7 @@ graph TD
     end
 
     subgraph EXEC ["Execution"]
-        P12["12. Parallel Agent Dispatch"]
+        P12["12. Worktree Isolation + Serial Merge/Test"]
     end
 
     P1 --> P2 --> P3 --> P4
@@ -204,7 +206,8 @@ graph LR
     subgraph exec ["Phase 12 — Dispatched"]
         R["Researcher"]
         D["Designer"]
-        C["Coder"]
+        C["Coder (worktree)"]
+        M["Merge (serial)"]
         Q["QA"]
         RV["Reviewer"]
     end
@@ -216,7 +219,7 @@ graph LR
 
     O --> I
     O --> R & D & C
-    C --> Q --> RV
+    C -->|branch| M --> Q --> RV
     Q -->|Fail| C
     RV -->|Reject| C
     O --> SC & PC
@@ -228,7 +231,7 @@ graph LR
 | **Interviewer** | Guides Phases 1-11 — one question at a time |
 | **Designer** | Visual mockups with progressive direction locking |
 | **Researcher** | Spike execution, produces decision documents |
-| **Coder** | TDD implementation, repo-aware, commits per story |
+| **Coder** | Implements in worktree (no tests), fixes on main post-merge |
 | **QA** | Automated DOD validation + per-wave UAT |
 | **Reviewer** | Spec compliance + code quality review |
 | **Spec Critic** | Reviews spec for gaps, contradictions, weak DODs |
@@ -243,12 +246,12 @@ graph LR
 ```mermaid
 stateDiagram-v2
     [*] --> pending
-    pending --> in_progress : deps met
-    in_progress --> qa_validation : Coder done
+    pending --> in_progress : deps met, dispatch to worktree
+    in_progress --> qa_validation : branch merged, QA dispatched
     qa_validation --> in_review : QA passes
-    qa_validation --> in_progress : QA fails
+    qa_validation --> in_progress : QA fails (fix on main)
     in_review --> done : Reviewer approves
-    in_review --> in_progress : Reviewer rejects
+    in_review --> in_progress : Reviewer rejects (fix on main)
     in_progress --> blocked : 3 failures
     done --> [*]
 ```

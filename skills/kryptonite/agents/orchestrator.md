@@ -35,22 +35,75 @@ For each wave (0, 1, 2, ...):
     ↓
     For each story in group (that passes dependency gate):
       ├─ If spike → dispatch Researcher
-      └─ If feature → dispatch Coder
-           ↓
-         Coder reports DONE
-           ↓
-         Dispatch QA (run DOD validations)
-           ↓
-         QA PASS? → Dispatch Reviewer
-         QA FAIL? → Re-dispatch Coder with failure details
-           ↓
-         Reviewer APPROVED? → Mark story "done", update state
-         Reviewer NEEDS_FIXES? → Re-dispatch Coder with fix list
-           ↓
+      └─ If feature → dispatch Coder (in worktree, NO tests)
+    ↓
+    SERIAL MERGE + TEST (first-done-first-merged):
+    As each Coder reports DONE:
+      1. Merge its branch into working branch
+      2. If conflict → re-dispatch Coder on main with conflict details
+      3. Run migrations
+      4. Dispatch QA (full DOD validation)
+      5. QA PASS → Dispatch Reviewer
+      6. QA FAIL → re-dispatch Coder on main with failure details
+      7. Reviewer APPROVED → mark "done", cleanup branch
+      8. Reviewer NEEDS_FIXES → re-dispatch Coder on main with fix list
+    ↓
     All stories in group done → next group
   ↓
   Wave complete → scoped regression check → next wave
 ```
+
+## Worktree Dispatch Protocol (Parallel Code, Serial Test)
+
+For each wave:
+  For each parallel_group in wave:
+
+    **PARALLEL CODING PHASE:**
+    For each story in group (passing dependency gate):
+      Dispatch Coder with `isolation: "worktree"`:
+        - worktree name: `krypt-{story-id}`
+        - branch: `krypt/{epic-slug}/{story-id}`
+        - Mode: worktree (NO test execution)
+
+    **SERIAL MERGE + TEST (first-done-first-merged):**
+    As each Coder reports DONE:
+      1. Merge its branch: `git merge --no-ff krypt/{epic-slug}/{story-id}`
+      2. If merge conflict → abort merge, re-dispatch Coder on main with conflict details
+      3. Run migrations: appropriate `db:migrate` for the stack
+      4. Dispatch QA (full DOD validation — this is the ONLY testing)
+      5. QA ALL_PASS → Dispatch Reviewer
+      6. QA HAS_FAILURES → re-dispatch Coder (on main, mode: `fix_on_main`, with failure details)
+      7. Reviewer APPROVED → mark "done", cleanup branch + worktree
+      8. Reviewer NEEDS_FIXES → re-dispatch Coder (on main, with fix list)
+
+    After all stories in group done → next group
+
+## Merge Conflict Handling
+
+When `git merge --no-ff {branch}` has conflicts:
+1. Abort the merge: `git merge --abort`
+2. Record conflicting files from the merge output
+3. Re-dispatch Coder (NOT in worktree — on main) with:
+   - The list of conflicting files
+   - A diff of what the other story changed in those files
+   - Instruction: manually apply your changes on top of current main
+4. Coder implements the changes directly on main (since the worktree approach failed)
+5. After Coder commits on main → proceed to QA as normal
+
+## Branch Cleanup
+
+After story marked "done":
+  - Delete branch: `git branch -d krypt/{epic-slug}/{story-id}`
+  - Worktree auto-removed by Claude Code
+
+After story BLOCKED (3 strikes):
+  - Keep branch for manual inspection
+
+After wave complete:
+  - Verify all branches for wave deleted
+
+After epic complete:
+  - Delete any remaining `krypt/{epic-slug}/*` branches
 
 ## Model Selection
 
@@ -89,6 +142,9 @@ See `references/execution-protocol.md` for the full state machine, legal transit
 After each agent completes, update state.json (respecting invariants):
 - `status`: follows state machine transitions only
 - `commit_sha`: from Coder's report
+- `branch`: from Coder's report (worktree mode only)
+- `coding_complete`: true when Coder reports DONE (before merge)
+- `merge_status`: `pending` → `merged` (or `conflict` if merge fails)
 - `dod_validation`: from QA's report (the SOURCE OF TRUTH for whether DOD passes)
 - `review_status`: from Reviewer's report
 - `test_results`: from QA's report

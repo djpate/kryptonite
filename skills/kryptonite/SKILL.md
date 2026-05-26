@@ -145,7 +145,7 @@ If resuming: read `epic.json` → `current_phase` tells you exactly where to pic
 │  9. Schema Validation Gate                              │
 │ 10. Spec Generation (everything finalized)              │
 │ 11. Implementation Plan (story-grouped parallel waves)  │
-│ 12. Execution (self-contained, parallel agents/wave)    │
+│ 12. Execution (worktree isolation, serial merge+test)   │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -163,7 +163,7 @@ Only Phase 9 dispatches subagents. All communication is hub-and-spoke: agents ne
 |-------|--------|---------|-----------------|
 | **Designer** | `agents/designer.md` | Visual mockups: propose options, iterate, produce HTML + screenshots | During Phase 5 for visual stories |
 | **Researcher** | `agents/researcher.md` | Spike tasks: investigate options, produce decision documents | Wave 0 execution |
-| **Coder** | `agents/coder.md` | Feature implementation: TDD, commit, self-review | Feature stories in Waves 1+ |
+| **Coder** | `agents/coder.md` | Feature implementation: write code in worktree (no tests), commit to story branch | Feature stories in Waves 1+ |
 | **QA** | `agents/qa.md` | DOD validation + UAT: run automated checks and per-wave user flow testing | After Coder reports DONE (DOD mode) and after wave completion (UAT mode) |
 | **Reviewer** | `agents/reviewer.md` | Spec compliance + code quality review | After QA passes ALL checks |
 | **Spec Critic** | `agents/spec-critic.md` | Review spec for gaps, contradictions, weak DODs | After Phase 10 (spec generation) |
@@ -180,20 +180,24 @@ Only Phase 9 dispatches subagents. All communication is hub-and-spoke: agents ne
 
 ### Execution Loop Per Story
 
+Phase 12 uses **worktree isolation**: Coders write code in parallel on isolated branches without running tests. The orchestrator merges branches one at a time and runs QA serially to avoid database conflicts.
+
 ```
 Orchestrator checks dependencies → all done?
   ↓ yes
-Dispatch Coder (or Researcher for spikes)
+Dispatch Coder in worktree (NO tests, isolated branch)
   ↓
-Coder reports DONE
+Coder reports DONE with branch name
   ↓
-Dispatch QA → run all DOD validations
+Orchestrator merges branch into working branch (serial, one at a time)
+  ↓ (if conflict → re-dispatch Coder on main to resolve)
+Run migrations, dispatch QA → run all DOD validations
   ↓
 QA ALL_PASS? → Dispatch Reviewer
-QA HAS_FAILURES? → Re-dispatch Coder with failure details
+QA HAS_FAILURES? → Re-dispatch Coder on main with failure details
   ↓
-Reviewer APPROVED? → Update state, mark "done"
-Reviewer NEEDS_FIXES? → Re-dispatch Coder with fix list
+Reviewer APPROVED? → Update state, mark "done", cleanup branch
+Reviewer NEEDS_FIXES? → Re-dispatch Coder on main with fix list
   ↓
 (Loop until approved or escalate after 3 attempts)
 ```

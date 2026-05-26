@@ -118,18 +118,21 @@ Spikes execute first. For each spike:
 For each wave, execute stories that can run in parallel simultaneously:
 
 1. **Dependency check** — for each story in the wave's parallel group, verify all dependencies are "done" in state.json. Skip any that aren't ready yet.
-2. **Dispatch Coder** agents in parallel (`agents/coder.md`) — one per story that passes the dependency check. **Include the story's `repo` field** so the Coder knows which repo to work in (path, stack, run/test commands from `epic.json`).
-3. **Three-stage verification** after Coder reports DONE:
+2. **Dispatch Coder** agents in parallel (`agents/coder.md`) — one per story that passes the dependency check. Each Coder is dispatched with `isolation: "worktree"` and mode `worktree`. **Include the story's `repo` field** so the Coder knows which repo to work in (path, stack, run/test commands from `epic.json`). Coders do NOT run tests in worktree mode.
+3. **Serial merge + test** (first-done-first-merged): as each Coder reports DONE, the orchestrator merges its branch and runs the verification pipeline serially:
+   - **Merge**: `git merge --no-ff krypt/{epic-slug}/{story-id}` into the working branch
+   - **If merge conflict**: abort merge, re-dispatch Coder on main with conflict details (mode: `fix_on_main`)
+   - **Run migrations**: appropriate `db:migrate` for the repo's stack
    - **Dispatch QA** (`agents/qa.md`) — runs every DOD item's validation command. ALL must pass.
    - **Dispatch Reviewer** (`agents/reviewer.md`) — checks spec compliance + code quality
 4. **QA is a hard gate** — if any DOD validation fails:
    - QA reports HAS_FAILURES with details (expected vs actual per item)
-   - Orchestrator re-dispatches Coder with the failure details
+   - Orchestrator re-dispatches Coder on main (mode: `fix_on_main`) with the failure details
    - After Coder fixes, re-dispatch QA
    - Repeat until QA reports ALL_PASS
    - Only THEN dispatch Reviewer
 5. **Reviewer is a hard gate** — if NEEDS_FIXES:
-   - Orchestrator re-dispatches Coder with the fix list
+   - Orchestrator re-dispatches Coder on main with the fix list
    - After Coder fixes, re-dispatch QA (full DOD re-check), then Reviewer
    - Repeat until Reviewer reports APPROVED
 6. **Update state** only after ALL gates pass:
@@ -138,8 +141,85 @@ For each wave, execute stories that can run in parallel simultaneously:
    - Record test results (pass/fail + details per DOD item)
    - Record which agent implemented it
    - Record DOD validation results
+   - **Cleanup**: delete the story's worktree branch
    - **Commit state change**: orchestrator commits `.kryptonite/` state update in the project repo
 7. **Sequential stories** within a wave run after their dependencies finish
+
+## Worktree Isolation Protocol
+
+### Why
+
+Parallel Coder agents sharing one repo corrupt each other's database via
+migrations and concurrent spec runs. Worktree isolation separates the coding
+phase (parallel, no tests) from the testing phase (serial, on main).
+
+### Rules
+
+1. ALL Coder agents in a parallel group are dispatched with worktree isolation
+2. Coders do NOT run tests, migrations, static checks, or anything that touches shared state
+3. Coders ONLY write code and commit to their isolated branch
+4. The orchestrator merges branches one at a time into the working branch
+5. QA runs on main after each merge (serial — only one QA at a time)
+6. Fix cycles happen on main (NOT back in the worktree)
+
+### Merge Order
+
+First-done-first-merged within a parallel group. When multiple Coders finish
+simultaneously, merge in order: dependency order > priority > story ID.
+
+### State Tracking
+
+Per-story fields added during execution:
+- `branch`: `krypt/{epic-slug}/{story-id}`
+- `coding_complete`: true/false (set true when Coder reports DONE, before merge)
+- `merge_status`: `pending` | `merged` | `conflict`
+
+The state machine transitions remain unchanged. `in_progress → qa_validation`
+still happens when QA is dispatched — which is now post-merge, not post-code.
+
+### Single-Story Parallel Groups
+
+If a parallel group contains only ONE story, worktree isolation is still used
+for consistency. The merge is trivially fast-forward.
+
+### Coder Feedback Formats
+
+When QA fails post-merge, re-dispatch Coder with:
+```json
+{
+  "feedback_type": "qa_failure",
+  "story_id": "US-005",
+  "mode": "fix_on_main",
+  "repo": { "path": "...", "test": "bundle exec rspec" },
+  "failures": [
+    {
+      "description": "POST /tickets returns 201",
+      "method": "test_suite",
+      "expected": "exit 0",
+      "actual": "exit 1",
+      "error_detail": "NoMethodError: undefined method 'priority' for Ticket...",
+      "spec_file": "spec/requests/tickets_spec.rb:45",
+      "possible_interaction": null
+    }
+  ],
+  "merged_before": ["US-003", "US-004"],
+  "instruction": "Fix the failing specs. You are on the main branch. Run only the specific failing specs to verify."
+}
+```
+
+When a merge conflict occurs, re-dispatch Coder with:
+```json
+{
+  "feedback_type": "merge_conflict",
+  "story_id": "US-005",
+  "mode": "fix_on_main",
+  "repo": { "path": "..." },
+  "conflicting_files": ["db/migrate/20260526_add_priority.rb", "app/models/ticket.rb"],
+  "conflict_context": "US-003 (merged earlier) added a 'status' column to tickets. Your migration also modifies the tickets table.",
+  "your_branch_diff": "... (summary of what you changed)",
+  "instruction": "Apply your changes manually on top of current main. Do not merge — implement directly."
+}
+```
 
 ## Commit Protocol
 
