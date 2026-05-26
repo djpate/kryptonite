@@ -10,7 +10,7 @@
   [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-7c3aed?style=flat-square)](https://github.com/djpate/kryptonite)
   [![Version](https://img.shields.io/badge/version-0.1.0-10b981?style=flat-square)](https://github.com/djpate/kryptonite/releases)
   [![License: MIT](https://img.shields.io/badge/license-MIT-64748b?style=flat-square)](LICENSE)
-  [![Agents](https://img.shields.io/badge/agents-9-6366f1?style=flat-square)](#agent-architecture)
+  [![Agents](https://img.shields.io/badge/agents-10-6366f1?style=flat-square)](#agent-architecture)
   [![Phases](https://img.shields.io/badge/phases-12-f59e0b?style=flat-square)](#how-it-works--12-phase-workflow)
 
 </div>
@@ -102,11 +102,12 @@ You approve (or comment and iterate on) both the spec and plan before execution 
 Stories execute wave by wave using **worktree isolation** — parallel coding without database conflicts:
 
 1. **Parallel coding** — independent stories in a wave are dispatched to Coder agents simultaneously, each in its own git worktree on an isolated branch. Coders write code and tests but do NOT run specs — no shared database access, no migration conflicts.
-2. **Serial merge + test** — as each Coder finishes (first-done-first-merged), the orchestrator merges its branch into main one at a time, runs migrations, then dispatches the verification pipeline:
+2. **Serial merge + test** — as each Coder finishes (first-done-first-merged), the orchestrator merges its branch into main one at a time, runs migrations, then dispatches the three-gate verification pipeline:
    - **QA** — runs every DOD validation command (curl, Chrome MCP, test suite, file checks). ALL must pass.
-   - **Reviewer** — checks spec compliance and code quality
+   - **Reviewer** — checks spec compliance: are all acceptance criteria implemented? Nothing extra, nothing missing.
+   - **Code Reviewer** — runs `/code-review` on the diff, flags security issues and simplification opportunities.
 
-If a merge conflicts, the Coder is re-dispatched on main to apply its changes manually. If QA fails → loops back to Coder (on main) with failure details. If Reviewer rejects → loops back to Coder with fix list, then re-runs QA. A story cannot reach "done" unless both QA passes AND Reviewer approves — this is enforced by invariants checked on every state write, not by convention.
+If a merge conflicts, the Coder is re-dispatched on main to apply its changes manually. If any gate fails → loops back to Coder with specific feedback, then re-runs the full pipeline. A story cannot reach "done" unless all three gates approve — enforced by state machine invariants on every write, not by convention.
 
 After each wave completes, QA runs **User Acceptance Testing** — driving through the app as real users via Chrome, testing that cross-story flows actually work end-to-end (not just individual DODs). For multi-repo projects, UAT starts all relevant services and tests the integration between them.
 
@@ -114,7 +115,7 @@ After 3 failed QA/Review cycles on the same story, Kryptonite pauses and asks yo
 
 ### Resuming & Restarting
 
-**Resume:** Start a new Claude Code session and trigger Kryptonite. It detects `.kryptonite/active`, reads `current_phase` from `epic.json`, and picks up exactly where you left off.
+**Resume:** Start a new Claude Code session and trigger Kryptonite. It detects your active epic from plugin storage, reads `current_phase` from `epic.json`, and picks up exactly where you left off.
 
 **New epic:** Say <kbd>new epic</kbd> or <kbd>start a new project</kbd>. The current epic is archived and a fresh one begins. Your repo registry persists.
 
@@ -143,7 +144,7 @@ After 3 failed QA/Review cycles on the same story, Kryptonite pauses and asks yo
 | Requirements | "Just build it" | 12-phase structured interview, one question at a time |
 | Unknowns | Hope for the best | Spikes execute research immediately, findings shape the plan |
 | Validation | Trust the AI | Every DOD item proven by curl, Chrome MCP, or test suite |
-| Quality gates | None | QA + Reviewer must both approve — enforced by state invariants |
+| Quality gates | None | QA + Reviewer + Code Reviewer must all approve — enforced by state invariants |
 | Parallel agents | DB conflicts, migration stomping | Worktree isolation — parallel code, serial merge+test |
 | Multi-repo | One file at a time | Cross-repo auto-split with dependency tracking and per-repo QA |
 | State | Lost between sessions | Persistent state with exact-phase resume |
@@ -210,6 +211,7 @@ graph LR
         M["Merge (serial)"]
         Q["QA"]
         RV["Reviewer"]
+        CR["Code Reviewer"]
     end
 
     subgraph gates ["Quality Gates"]
@@ -219,9 +221,10 @@ graph LR
 
     O --> I
     O --> R & D & C
-    C -->|branch| M --> Q --> RV
+    C -->|branch| M --> Q --> RV --> CR
     Q -->|Fail| C
     RV -->|Reject| C
+    CR -->|Reject| C
     O --> SC & PC
 ```
 
@@ -233,9 +236,10 @@ graph LR
 | **Researcher** | Spike execution, produces decision documents |
 | **Coder** | Implements in worktree (no tests), fixes on main post-merge |
 | **QA** | Automated DOD validation + per-wave UAT |
-| **Reviewer** | Spec compliance + code quality review |
+| **Reviewer** | Spec compliance — acceptance criteria met, nothing extra |
+| **Code Reviewer** | Code quality via /code-review — security, simplification |
 | **Spec Critic** | Reviews spec for gaps, contradictions, weak DODs |
-| **Plan Critic** | Reviews plan for conflicts, ordering, infra gaps |
+| **Plan Critic** | Reviews plan for conflicts, merge risk, ordering |
 
 </details>
 
@@ -250,8 +254,10 @@ stateDiagram-v2
     in_progress --> qa_validation : branch merged, QA dispatched
     qa_validation --> in_review : QA passes
     qa_validation --> in_progress : QA fails (fix on main)
-    in_review --> done : Reviewer approves
+    in_review --> code_review : Reviewer approves
     in_review --> in_progress : Reviewer rejects (fix on main)
+    code_review --> done : Code Reviewer approves
+    code_review --> in_progress : Code Reviewer rejects (fix on main)
     in_progress --> blocked : 3 failures
     done --> [*]
 ```
@@ -260,8 +266,10 @@ stateDiagram-v2
 
 1. Cannot reach `done` without `dod_validation.all_passed === true`
 2. Cannot reach `done` without `review_status === "approved"`
-3. Cannot enter `in_review` without passing QA
-4. Cannot enter `in_progress` without all dependencies met
+3. Cannot reach `done` without `code_review_status === "approved"`
+4. Cannot enter `in_review` without passing QA
+5. Cannot enter `code_review` without Reviewer approval
+6. Cannot enter `in_progress` without all dependencies met
 
 </details>
 
@@ -270,18 +278,25 @@ stateDiagram-v2
 <br/>
 
 ```
-.kryptonite/
-├── repos.json          # Shared repo registry (persists across epics)
-├── active              # Slug of the active epic
-└── {epic-slug}/
-    ├── epic.json       # Parties, tech context, current phase, design direction
-    ├── state.json      # Stories, waves, execution state
-    ├── comments.json   # Persisted review comments
-    ├── spec.html       # Branded spec document
-    ├── plan.html       # Implementation plan
-    ├── spikes/         # Research findings
-    └── mocks/          # Visual mockups + screenshots
+~/.claude/plugins/kryptonite/data/
+├── registry.json           # Global project registry
+├── active.json             # Maps projects to active epics
+└── {project-id}/
+    ├── project.json        # Project metadata (source, path)
+    ├── repos.json          # Shared repo registry (persists across epics)
+    └── {epic-slug}/
+        ├── epic.json       # Parties, tech context, current phase
+        ├── state.json      # Stories, waves, execution state
+        ├── state.json.bak  # Backup (corruption recovery)
+        ├── comments.json   # Persisted review comments
+        ├── spec.html       # Branded spec document
+        ├── plan.html       # Implementation plan
+        ├── spikes/         # Research findings
+        └── mocks/          # Visual mockups + screenshots
 ```
+
+> [!NOTE]
+> Epic data lives in the plugin folder — never in your project repo. No `.kryptonite/` clutter, no git noise.
 
 </details>
 
