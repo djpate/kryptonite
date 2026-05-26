@@ -1,0 +1,19 @@
+README.md
+  s_87e222af04e566::t_f9db0c126b4334 99-100,136,138-140,183
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "785fe2552a86eb606858916077b07c42768aef32",
+  "prompts": {},
+  "sessions": {
+    "s_87e222af04e566": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "53a8e9e7-8be7-4610-aecd-f3ec9935a71c",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
