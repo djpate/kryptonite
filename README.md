@@ -145,6 +145,26 @@ Or just describe what you want to build — Kryptonite activates automatically.
 
 ---
 
+## Usage
+
+### Starting a new epic
+
+Just describe what you want to build. Kryptonite creates a `.kryptonite/` directory in your project root and walks you through all 12 phases — one question at a time. You'll define parties, dump stories, run research spikes, approve mocks, and review the spec before any code is written.
+
+### Resuming an epic
+
+Start a new Claude Code session and trigger kryptonite. It detects your `.kryptonite/active` file, reads `current_phase` from `epic.json`, and picks up exactly where you left off — no context is lost between sessions.
+
+### Starting over / new epic
+
+Say <kbd>new epic</kbd> or <kbd>start a new project</kbd>. The current epic is archived (status set to `completed`) and a fresh one begins. Your `repos.json` persists across epics — no need to re-register repos.
+
+### Mid-flow amendments
+
+During execution (Phase 12), stories can be updated without restarting. The state machine tracks amendment history and re-validates affected DODs automatically.
+
+---
+
 ## Why Kryptonite?
 
 | Concern | Typical AI Coding | Kryptonite |
