@@ -23,6 +23,23 @@ You describe what you want to build. Kryptonite interviews you, identifies gaps,
 
 ---
 
+## Key Features
+
+| | Feature | What It Means |
+|:---:|:---|:---|
+| 🔄 | **12-Phase Workflow** | Structured path from "I want to build X" to deployed code |
+| 🤖 | **9 Specialized Agents** | Each agent has a single job and does it well |
+| ✅ | **Automated DOD Validation** | Every story proven done via curl, Chrome MCP, or test suite |
+| 🔒 | **State Machine Enforcement** | Stories cannot skip QA or review — invariants enforced on every write |
+| 📦 | **Multi-Repo Support** | Epics span multiple repos with cross-repo auto-splitting |
+| 🔬 | **Spike-First Research** | Questions answered before DODs are written — no scope explosions |
+| 🎨 | **Visual Mocks + Compare** | Side-by-side mock comparison with click-to-pick |
+| 💬 | **Branded Comment Server** | Inline commenting on spec/plan at localhost:3847 |
+| 🔁 | **Persistent State** | Resume any epic across sessions — picks up exactly where you left off |
+| ⚡ | **Parallel Execution** | Independent stories run simultaneously within waves |
+
+---
+
 ## How It Works
 
 ```mermaid
@@ -103,23 +120,6 @@ graph LR
 | **Reviewer** | Spec compliance + code quality review |
 | **Spec Critic** | Reviews spec for gaps, contradictions, weak DODs |
 | **Plan Critic** | Reviews plan for conflicts, ordering, infra gaps |
-
----
-
-## Key Features
-
-| | Feature | What It Means |
-|:---:|:---|:---|
-| 🔄 | **12-Phase Workflow** | Structured path from "I want to build X" to deployed code |
-| 🤖 | **9 Specialized Agents** | Each agent has a single job and does it well |
-| ✅ | **Automated DOD Validation** | Every story proven done via curl, Chrome MCP, or test suite |
-| 🔒 | **State Machine Enforcement** | Stories cannot skip QA or review — invariants enforced on every write |
-| 📦 | **Multi-Repo Support** | Epics span multiple repos with cross-repo auto-splitting |
-| 🔬 | **Spike-First Research** | Questions answered before DODs are written — no scope explosions |
-| 🎨 | **Visual Mocks + Compare** | Side-by-side mock comparison with click-to-pick |
-| 💬 | **Branded Comment Server** | Inline commenting on spec/plan at localhost:3847 |
-| 🔁 | **Persistent State** | Resume any epic across sessions — picks up exactly where you left off |
-| ⚡ | **Parallel Execution** | Independent stories run simultaneously within waves |
 
 ---
 
