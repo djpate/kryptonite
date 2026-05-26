@@ -1,11 +1,11 @@
 ---
 name: repos
-description: "Manage the kryptonite repo registry. Use this skill when the user wants to add, remove, update, or list repos in their .kryptonite/repos.json. Trigger when: 'add a repo', 'register repo', 'update repo', 'remove repo', 'list repos', 'show repos', 'which repos', or when the user mentions a new codebase they want kryptonite to know about. Also trigger if the user says 'kryptonite repos' or 'manage repos'."
+description: "Manage the kryptonite repo registry. Use this skill when the user wants to add, remove, update, or list repos in their <skill-path>/data/{PROJECT}/repos.json. Trigger when: 'add a repo', 'register repo', 'update repo', 'remove repo', 'list repos', 'show repos', 'which repos', or when the user mentions a new codebase they want kryptonite to know about. Also trigger if the user says 'kryptonite repos' or 'manage repos'."
 ---
 
 # Kryptonite Repos — Repo Registry Management
 
-Manage the project-level repo registry at `.kryptonite/repos.json`. This registry is shared across all epics — define repos once, reference them by name in any story.
+Manage the project-level repo registry at `<skill-path>/data/{PROJECT}/repos.json`. This registry is shared across all epics — define repos once, reference them by name in any story.
 
 ## What It Does
 
@@ -19,7 +19,7 @@ Manage the project-level repo registry at `.kryptonite/repos.json`. This registr
 
 ### List Repos
 
-If the user asks to see repos, read `.kryptonite/repos.json` and present them:
+If the user asks to see repos, read `<skill-path>/data/{PROJECT}/repos.json` and present them:
 
 ```
 Registered repos:
@@ -44,7 +44,7 @@ When the user wants to add a repo, gather these fields:
 6. **test** — how to run tests. Auto-detect if possible.
 7. **testing_notes** — free-form testing context. Ask: "Any testing notes? (credentials, URLs, how to seed data, API keys, anything agents need to know when testing against this repo)"
 
-After gathering all fields, write to `.kryptonite/repos.json` (create the file and `.kryptonite/` directory if they don't exist).
+After gathering all fields, write to `<skill-path>/data/{PROJECT}/repos.json` (create the project data directory if it doesn't exist).
 
 ### Auto-Detection
 
@@ -68,7 +68,7 @@ Present detected values and ask user to confirm or adjust.
 When the user wants to change a repo's details:
 1. Show current values
 2. Ask what to change
-3. Update `.kryptonite/repos.json`
+3. Update `<skill-path>/data/{PROJECT}/repos.json`
 
 ### Remove a Repo
 
@@ -79,7 +79,7 @@ When the user wants to remove a repo:
 
 ## File Format
 
-`.kryptonite/repos.json`:
+`<skill-path>/data/{PROJECT}/repos.json`:
 ```json
 {
   "repos": [
@@ -101,11 +101,11 @@ The `testing_notes` field is **free-form text** — put whatever the QA agent an
 
 ## Initialization
 
-If `.kryptonite/` doesn't exist when this skill is invoked, create it:
-```bash
-mkdir -p .kryptonite
-echo '{"repos": []}' > .kryptonite/repos.json
-```
+If the project data directory doesn't exist when this skill is invoked:
+1. Compute project-id (SHA-256 of git remote URL or path, first 12 chars)
+2. Create the directory: `<skill-path>/data/{PROJECT}/`
+3. Write empty registry: `{"repos": []}` to `<skill-path>/data/{PROJECT}/repos.json`
+4. Register the project in `<skill-path>/data/registry.json`
 
 ## Integration with Epics
 

@@ -89,3 +89,27 @@ Statuses: `APPROVED` (no critical issues), `NEEDS_REVISION` (has critical issues
 - Prioritize: critical issues block execution, improvements make it better, observations are informational
 - Don't nitpick phrasing — focus on things that would cause real implementation problems
 - If the spec is solid, say so. Don't invent issues to justify your existence.
+
+## Re-Validation Mode (Post-Revision)
+
+When dispatched after a spec revision (not initial generation), you receive:
+- The FULL updated spec
+- A `changes` array listing what was modified since the last version
+- The previous version number (for context)
+
+In this mode:
+- Focus ONLY on the changed sections and their interactions with unchanged sections
+- Check: do the changes introduce new contradictions with existing stories?
+- Check: do amended DODs still match their acceptance criteria?
+- Check: are new dependencies properly reflected?
+- Do NOT re-check sections that haven't changed
+
+Report format is the same (`APPROVED` / `NEEDS_REVISION`) but include a `scope` field:
+```json
+{
+  "scope": "re-validation",
+  "changes_reviewed": ["US-007 acceptance criteria", "US-013 new story"],
+  "status": "APPROVED",
+  "issues": []
+}
+```

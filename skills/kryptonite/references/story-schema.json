@@ -12,7 +12,8 @@
     "definition_of_done",
     "priority",
     "dependencies",
-    "estimated_complexity"
+    "estimated_complexity",
+    "repo"
   ],
   "properties": {
     "id": {
@@ -28,6 +29,11 @@
     "party": {
       "type": "string",
       "description": "The actor/role this story belongs to (must match a defined party from Phase 4). For spikes, use 'system' or the party most relevant to the research."
+    },
+    "repo": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Name of the repository this story belongs to (must match a `name` in the project's repos.json). Cross-repo stories are split into per-repo sub-stories during Phase 8 (see Cross-Repo Story Auto-Split)."
     },
     "statement": {
       "type": "object",
@@ -145,7 +151,7 @@
     "has_mock": {
       "type": "boolean",
       "default": false,
-      "description": "Whether this story has a UI component that needs a visual mockup. Set to true during Phase 5 for stories with user-facing UI. Mock files are stored at .kryptonite/{EPIC}/mocks/{id}.html and .kryptonite/{EPIC}/mocks/{id}.png"
+      "description": "Whether this story has a UI component that needs a visual mockup. Set to true during Phase 5 for stories with user-facing UI. Mock files are stored in the epic's mocks/ directory."
     },
     "mock_approved": {
       "type": "boolean",

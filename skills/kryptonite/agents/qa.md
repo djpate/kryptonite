@@ -25,21 +25,19 @@ From the orchestrator:
 
 ## Pre-flight
 
-Before running any validations:
+The orchestrator has already verified infrastructure before dispatching you (deps installed, app running, migrations current, data seeded). Your pre-flight is lightweight:
 
-1. **Determine APP_URL per repo** — resolve `${APP_URL}` used in DOD commands:
-   - Read the story's assigned repo from `repos.json` — the `run` field tells you which port it serves on
-   - Extract port from the `run` command (e.g., `bin/rails server -p 3000` → port 3000)
-   - Check if the app is actually running on that port
-   - If not running: start it using the `run` command from `repos.json`, wait for it to be ready
-   - If still can't reach it, report BLOCKED: "App not running — repo '{name}' at port {port}"
-   - For cross-repo stories (multiple APP_URLs needed for UAT), resolve each repo's URL independently
+1. **Verify app is still reachable** — HTTP GET to `localhost:{port}`. If not responding:
+   - Report `INFRA_DEGRADED` (NOT `HAS_FAILURES`) — this is not a code issue
+   - The orchestrator will re-run infrastructure setup and re-dispatch you
+   - Do NOT proceed with validations against a dead app
 
-2. **Run pending migrations** — after a merge, new migrations may exist. Run the appropriate migration command for the repo's stack (e.g., `bin/rails db:migrate RAILS_ENV=test`) before running any validations. If migrations fail, report as QA failure with the migration error in `error_detail`.
+2. **Run story-specific migrations** — if the just-merged branch added new migrations, run them:
+   - Rails: `bin/rails db:migrate RAILS_ENV=test`
+   - Other: appropriate command for the stack
+   - If migration fails: report as `HAS_FAILURES` (this IS likely a code issue from the merged branch)
 
-3. **Verify test environment** — if test_suite methods are used, `cd` to the repo's `path` and ensure test dependencies are installed
-
-4. **Replace variables** — substitute `${APP_URL}` in all command strings with the resolved URL. If a story's DOD references a specific repo's URL (e.g., `${APP_URL:api}`), resolve from that repo's run config.
+3. **Replace variables** — substitute `${APP_URL}` in all command strings with `http://localhost:{port}` resolved from the repo's `run` config. If a story's DOD references a specific repo's URL (e.g., `${APP_URL:api}`), resolve from that repo's run config.
 
 ## UAT Mode
 
@@ -135,7 +133,21 @@ For each DOD item, execute its validation:
 }
 ```
 
-Statuses: `ALL_PASS`, `HAS_FAILURES`
+Statuses: `ALL_PASS`, `HAS_FAILURES`, `INFRA_DEGRADED`
+
+When reporting `INFRA_DEGRADED`:
+```json
+{
+  "status": "INFRA_DEGRADED",
+  "story_id": "US-001",
+  "reason": "App not responding on port 3000 — connection refused",
+  "repo": "api"
+}
+```
+
+The orchestrator handles `INFRA_DEGRADED` differently from `HAS_FAILURES`:
+- `INFRA_DEGRADED` → re-run infrastructure setup, then re-dispatch QA (does NOT go back to Coder, does NOT increment attempts)
+- `HAS_FAILURES` → re-dispatch Coder with failure details (code problem)
 
 ## Regression Mode
 

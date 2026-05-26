@@ -31,6 +31,10 @@ Orchestrator reads approved plan from state.json
   ↓
 For each wave (0, 1, 2, ...):
   ↓
+  PRE-WAVE SETUP:
+    For each repo in wave: install deps → check port → start app → migrate → seed → smoke check
+    If ANY step fails → HALT, report to user
+  ↓
   For each parallel group in wave:
     ↓
     For each story in group (that passes dependency gate):
@@ -57,6 +61,14 @@ For each wave (0, 1, 2, ...):
 
 For each wave:
   For each parallel_group in wave:
+
+    **PRE-WAVE SETUP (once per wave, before any dispatch):**
+    For each unique repo in this wave's stories:
+      - Verify app running (start if not)
+      - Run migrations
+      - Seed if needed (first wave only)
+      - Smoke check
+    If SETUP_FAILED → halt, report, do not dispatch
 
     **PARALLEL CODING PHASE:**
     For each story in group (passing dependency gate):
@@ -139,7 +151,13 @@ See `references/execution-protocol.md` for the full state machine, legal transit
 
 ## State Updates
 
-After each agent completes, update state.json (respecting invariants):
+After each agent completes, update state.json (respecting invariants and backup protocol):
+
+**Backup protocol:** Before every write, copy `state.json` → `state.json.bak`, write to `.tmp`, validate, atomic rename.
+
+**State lives at:** `<skill-path>/data/{PROJECT}/{EPIC}/state.json` (never in the project repo).
+
+Fields to update:
 - `status`: follows state machine transitions only
 - `commit_sha`: from Coder's report
 - `branch`: from Coder's report (worktree mode only)
@@ -151,6 +169,8 @@ After each agent completes, update state.json (respecting invariants):
 - `implemented_by`: agent model used
 - `started_at` / `completed_at`: timestamps
 - `attempts`: increment on each QA/Review cycle
+
+**No git commits for state changes.** State is tracked via file writes only. The only commits to repos are Coder code commits.
 
 ## Escalation
 

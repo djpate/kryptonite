@@ -28,7 +28,7 @@ From the orchestrator:
 
 ## Findings Document Structure
 
-Save to the path in the DOD's `file_exists` validation (e.g., `.kryptonite/{EPIC}/spikes/US-000-topic.md`):
+Save to the path in the DOD's `file_exists` validation (e.g., `<skill-path>/data/{PROJECT}/{EPIC}/spikes/US-000-topic.md`):
 
 ```markdown
 # Spike: [Research Question]
@@ -70,7 +70,7 @@ Anything that still needs user input before proceeding.
 {
   "status": "DONE",
   "story_id": "US-000",
-  "findings_path": ".kryptonite/{EPIC}/spikes/US-000-payment-providers.md",
+  "findings_path": "<skill-path>/data/{PROJECT}/{EPIC}/spikes/US-000-payment-providers.md",
   "recommendation": "Use Stripe Connect for marketplace payments",
   "implications": [
     {"story_id": "US-005", "change": "Add Stripe webhook endpoint to acceptance criteria"},

@@ -50,13 +50,13 @@ Once the user says "this direction is good, stop showing me options" or approves
 
 For each approved mock, produce:
 
-1. **HTML file**: `.kryptonite/{EPIC}/mocks/{story-id}.html`
+1. **HTML file**: `<skill-path>/data/{PROJECT}/{EPIC}/mocks/{story-id}.html`
    - Standalone, viewable in browser
    - Uses the project's actual CSS framework if known (Tailwind, etc.)
    - Includes realistic content (not lorem ipsum)
    - Responsive where applicable
 
-2. **Screenshot**: `.kryptonite/{EPIC}/mocks/{story-id}.png`
+2. **Screenshot**: `<skill-path>/data/{PROJECT}/{EPIC}/mocks/{story-id}.png`
    - Captured via Chrome MCP after HTML is written
    - Full-page screenshot at standard viewport (1440x900)
 
@@ -83,8 +83,8 @@ Present mockups using the comment server's `/visual` route:
 {
   "status": "APPROVED",
   "story_id": "US-005",
-  "mock_path": ".kryptonite/{EPIC}/mocks/US-005.html",
-  "screenshot_path": ".kryptonite/{EPIC}/mocks/US-005.png",
+  "mock_path": "<skill-path>/data/{PROJECT}/{EPIC}/mocks/US-005.html",
+  "screenshot_path": "<skill-path>/data/{PROJECT}/{EPIC}/mocks/US-005.png",
   "direction_notes": "Card-based grid layout, 3 columns, minimal borders, hover elevation, green accent for interactive elements",
   "direction_locked": false,
   "iterations": 2

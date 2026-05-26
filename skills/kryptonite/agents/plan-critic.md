@@ -31,6 +31,66 @@ From the orchestrator:
 - **Database migration conflicts**: Do multiple stories add migrations? (Migration ordering matters)
 - If conflicts detected: suggest making them sequential instead of parallel
 
+### Merge Conflict Risk Analysis
+
+For each parallel group within a wave, extract all file paths from every task step across all stories in that group. Identify which stories will modify the same files and classify risk:
+
+**File Extraction:** From the plan's task steps, collect all file paths each story will create or modify. Also infer implied files based on stack conventions:
+- Rails story adding a controller → implies `config/routes.rb`
+- Prisma story adding a model → implies `schema.prisma`
+- Story adding a migration → implies schema file (`db/schema.rb`, `schema.prisma`, etc.)
+
+**Risk Classification (per pair of stories in same parallel group):**
+
+| Risk | Condition | Action |
+|------|-----------|--------|
+| CRITICAL | Same migration file OR same schema file | SEQUENTIALIZE — move to separate group |
+| HIGH | Same model/entity + both add columns/methods | SEQUENTIALIZE — move to separate group |
+| MEDIUM | Same controller/route file, different endpoints | MERGE_ORDER — suggest simpler story first |
+| LOW | Same directory, different files | Note for awareness |
+
+**Scoring:** Each pair gets the HIGHEST risk from any file overlap.
+
+**Output:** Include a `merge_conflict_analysis` section in your report:
+
+```json
+{
+  "merge_conflict_analysis": {
+    "high_risk_pairs": [
+      {
+        "wave": 2,
+        "group": 0,
+        "stories": ["US-005a", "US-006a"],
+        "risk": "CRITICAL",
+        "overlapping_files": ["db/migrate/20260526_*.rb"],
+        "recommendation": "SEQUENTIALIZE",
+        "explanation": "Both add columns to tickets table — guaranteed schema conflict"
+      }
+    ],
+    "medium_risk_pairs": [
+      {
+        "wave": 2,
+        "group": 0,
+        "stories": ["US-007a", "US-008a"],
+        "risk": "MEDIUM",
+        "overlapping_files": ["app/controllers/tickets_controller.rb"],
+        "recommendation": "MERGE_ORDER",
+        "merge_first": "US-007a",
+        "reason": "Simpler endpoint (index) — merge first so complex filtering resolves on top"
+      }
+    ],
+    "recommended_merge_order": {
+      "wave_2_group_0": ["US-007a", "US-008a", "US-009a"]
+    }
+  }
+}
+```
+
+**Decision rules:**
+- CRITICAL or HIGH pairs → add to `critical_issues` (forces plan revision — stories must be sequentialized)
+- MEDIUM pairs → add to `improvements` AND produce `recommended_merge_order`
+- LOW pairs → add to `risks` for awareness
+
 ### 3. Task Breakdown Quality
 - Are tasks actually 2-5 minutes? (A task that says "implement the full graph editor" is not 2-5 minutes)
 - Are tasks in the right order? (Test before implementation = TDD, implementation before test = wrong)

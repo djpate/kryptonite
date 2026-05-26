@@ -25,38 +25,83 @@ This applies regardless of perceived simplicity.
 
 ## File Structure
 
-All kryptonite data lives at `.kryptonite/` in the project root. Each epic is a separate directory. Only one epic is active at a time.
+All kryptonite data lives in the **plugin folder** — never in the project repo. This keeps repos clean, avoids polluting git history, and is invisible to teammates.
 
-In path references below, `{EPIC}` = the active epic's slug (read from `.kryptonite/active`).
-For example, if the active epic is "user-management", then `.kryptonite/{EPIC}/state.json` = `.kryptonite/user-management/state.json`.
+**Storage root:** `<skill-path>/data/`
+
+Each project is identified by a 12-char hash derived from its git remote URL (or repo path if no remote). In path references below:
+- `{PROJECT}` = the project's 12-char ID
+- `{EPIC}` = the active epic's slug
 
 ```
-.kryptonite/
-├── repos.json                         (project-level repo registry — shared across all epics)
-├── active                             (file containing slug of active epic)
-├── user-management/                   (epic slug — kebab-case)
-│   ├── epic.json                      (epic metadata: name, description, parties)
-│   ├── state.json                     (stories, waves, execution state)
-│   ├── comments.json                  (persisted review comments)
-│   ├── spec.html                      (branded spec document)
-│   ├── plan.html                      (implementation plan)
-│   └── mocks/
-│       ├── US-003.html
-│       ├── US-003.png
-│       ├── US-005.html
-│       └── US-005.png
-├── notification-system/               (another epic — archived)
-│   ├── epic.json
-│   ├── state.json
-│   ├── spec.html
-│   ├── plan.html
-│   └── mocks/
-└── ...
+<skill-path>/data/
+├── registry.json                      (global: maps project-ids to metadata)
+├── active.json                        (global: maps project paths to active epics)
+└── {PROJECT}/
+    ├── project.json                   (source, path, name, created_at)
+    ├── repos.json                     (project-level repo registry)
+    └── {EPIC}/
+        ├── epic.json                  (epic metadata: name, description, parties)
+        ├── state.json                 (stories, waves, execution state)
+        ├── state.json.bak             (backup — last known good state)
+        ├── comments.json              (persisted review comments)
+        ├── spec.html                  (branded spec document)
+        ├── plan.html                  (implementation plan)
+        ├── spikes/
+        │   └── US-000-topic.md
+        └── mocks/
+            ├── US-003.html
+            ├── US-003.png
+            ├── US-005.html
+            └── US-005.png
 ```
+
+### Project Identification
+
+On startup, compute the project ID:
+1. Try: `git remote get-url origin` → SHA-256 first 12 chars of the URL
+2. Fallback: SHA-256 first 12 chars of the absolute repo root path
+
+Store the mapping in `registry.json`:
+```json
+{
+  "projects": {
+    "a3f9c2d81b4e": {
+      "name": "my-app",
+      "path": "/Users/dev/work/my-app",
+      "source": "git@github.com:org/my-app.git",
+      "source_type": "git_remote",
+      "created_at": "2026-05-26T10:00:00Z"
+    }
+  }
+}
+```
+
+### State Write Protocol (Backup & Recovery)
+
+Before every `state.json` write:
+1. Copy current `state.json` → `state.json.bak`
+2. Write new content to `state.json.tmp`
+3. Validate JSON parse of the tmp file
+4. Rename `state.json.tmp` → `state.json` (atomic)
+
+On load:
+1. Parse `state.json` — if valid, use it
+2. If corrupt: restore from `state.json.bak`, warn the user
+3. If both corrupt: halt, report to user (manual recovery needed)
+
+### Migration from `.kryptonite/`
+
+If `.kryptonite/` exists in the project root (legacy location):
+1. Inform user: "Found existing data in `.kryptonite/`. Migrating to plugin storage."
+2. Compute project-id, create `data/{PROJECT}/`
+3. Copy epic directories and repos.json to new location
+4. Verify by loading state from new location
+5. Ask user: "Remove `.kryptonite/` from your repo?" (offer git rm + commit)
 
 ### repos.json (project-level)
 
-The repo registry is shared across ALL epics — define repos once, use them everywhere. Lives at `.kryptonite/repos.json`:
+The repo registry is shared across ALL epics — define repos once, use them everywhere. Lives at `<skill-path>/data/{PROJECT}/repos.json`:
 
 ```json
 {
@@ -85,7 +130,7 @@ The repo registry is shared across ALL epics — define repos once, use them eve
 
 `testing_notes` is free-form — credentials, URLs, seed commands, API keys, env vars, external service configs, anything agents need when working in this repo.
 
-When a new epic starts, the existing `repos.json` is already available — no need to redefine repos. Phase 6 only asks about repos if `repos.json` doesn't exist yet or the user wants to add a new one. Use the `repos` skill (`/repos`) to manage the registry independently.
+When a new epic starts, the existing `repos.json` is already available — no need to redefine repos. Phase 7 only asks about repos if `repos.json` doesn't exist yet or the user wants to add a new one. Use the `repos` skill (`/repos`) to manage the registry independently.
 
 ### epic.json
 
@@ -108,25 +153,30 @@ Contains stories and execution state (same schema as before, minus the fields no
 
 When starting fresh (no active epic, or user says "new epic"):
 1. Ask for the epic name/slug
-2. Create `.kryptonite/{EPIC}/`
-3. Write `active` file pointing to the new slug
-4. Proceed to Phase 1
+2. Compute project-id (from git remote or path)
+3. Create `<skill-path>/data/{PROJECT}/{EPIC}/`
+4. Update `active.json` to map this project path to the new epic
+5. Proceed to Phase 1
 
 ### Archiving an Epic
 
 When an epic completes (all stories done) or the user starts a new one:
 1. Set `"status": "completed"` and `"completed_at"` in the old epic's `epic.json`
-2. Update `active` to point to the new epic (or remove it if none active)
+2. Update `active.json` to point to the new epic (or remove the entry if none active)
 
 ## Resume Detection
 
-Before starting, check for `.kryptonite/` in the project root:
+Before starting, check plugin data for the current project:
 
-1. **No `.kryptonite/`** → fresh start, ask "What do you want to build?"
-2. **Has `active` file** → read the active epic, show story counts, offer resume or new epic
-3. **No `active` file** → all epics archived, offer to start a new one
+1. Compute project-id from current working directory
+2. Look up in `<skill-path>/data/active.json`
+3. **No entry** → fresh start, ask "What do you want to build?"
+4. **Has active epic** → read the epic's `epic.json`, show story counts, offer resume or new epic
+5. **Entry but no active epic** → all epics archived, offer to start a new one
 
 If resuming: read `epic.json` → `current_phase` tells you exactly where to pick up. No inference needed. Show context relevant to that phase and continue.
+
+**Legacy migration:** If `active.json` has no entry but `.kryptonite/` exists in the project root, trigger migration (see "Migration from `.kryptonite/`" above).
 
 ---
 
@@ -333,18 +383,17 @@ After spikes return, their findings may significantly change the project. This p
 
 Ask implementation context one question at a time. Skip questions already answered by prior context:
 
-1. **Repos** — Check if `.kryptonite/repos.json` already exists:
+1. **Repos** — Check if `<skill-path>/data/{PROJECT}/repos.json` already exists:
    - **If it exists**: show the registered repos and ask "Does this epic use any of these? Need to add a new one?"
    - **If not**: ask "What repos will this epic touch? For each one, I need: a short name, the path, what code it holds, its stack, and how to run/test it." Then write `repos.json`.
 2. Architectural constraints or patterns to follow?
 3. Existing infrastructure to integrate with (auth, API gateway, message queue)?
 4. Testing approach preferences (frameworks, coverage expectations)?
 5. Non-functional requirements (performance, scale, compliance)?
-6. Confirm kryptonite directory location (Default: `.kryptonite/` at project root)
 
 ### Multi-Repo Support
 
-Epics can span multiple repositories. Repos are registered once at **project level** in `.kryptonite/repos.json` (not per-epic). They persist across all epics so you never redefine them.
+Epics can span multiple repositories. Repos are registered once at **project level** in `<skill-path>/data/{PROJECT}/repos.json` (not per-epic). They persist across all epics so you never redefine them.
 
 Each repo entry gives agents enough context to:
 - Know WHERE to work (`path`)
@@ -390,7 +439,7 @@ Mark visual stories with `"has_mock": true`. **Group by design context** (e.g., 
 - Orchestrator reads selections from `/api/selections` once the user submits
 - Lock direction after 3+ approvals without changes
 
-Mocks stored at: `.kryptonite/{EPIC}/mocks/{story-id}.html` (variants: `{story-id}-option-a.html`)
+Mocks stored at: `<skill-path>/data/{PROJECT}/{EPIC}/mocks/{story-id}.html` (variants: `{story-id}-option-a.html`)
 
 ### Step 2: Cross-repo auto-split.
 
@@ -465,25 +514,25 @@ Produce a comprehensive project specification including:
 
 ### Initialize Epic & State
 
-Create the epic directory and files at `.kryptonite/{EPIC}/`:
+Create the epic directory and files at `<skill-path>/data/{PROJECT}/{EPIC}/`:
 - **epic.json** — epic context (description, parties, tech, design direction). See schema in File Structure section above.
 - **state.json** — stories array (each conforming to story-schema.json + execution fields: `has_mock`, `mock_approved`, `amended`, `amendment_history`, `wave`, `status`, `commit_sha`, `dod_validation`, `test_results`, `implemented_by`, `started_at`, `completed_at`) and `waves` array.
-- **active** file at `.kryptonite/active` containing the epic slug.
+- Update `<skill-path>/data/active.json` to map this project to the new epic slug.
 
 ### Generate Branded HTML
 
-Polished HTML spec: dark sidebar navigation, light content area, green accent (#10b981), professional SaaS aesthetic. Every `<section>` gets `data-section="section-id"` for commenting. Sticky sidebar, responsive. Save to `.kryptonite/{EPIC}/spec.html`.
+Polished HTML spec: dark sidebar navigation, light content area, green accent (#10b981), professional SaaS aesthetic. Every `<section>` gets `data-section="section-id"` for commenting. Sticky sidebar, responsive. Save to `<skill-path>/data/{PROJECT}/{EPIC}/spec.html`.
 
 ### Start Comment Server
 
 ```bash
 node <skill-path>/scripts/comment-server.js \
-  --spec-path .kryptonite/{EPIC}/spec.html \
-  --state-path .kryptonite/{EPIC}/state.json \
+  --spec-path <skill-path>/data/{PROJECT}/{EPIC}/spec.html \
+  --state-path <skill-path>/data/{PROJECT}/{EPIC}/state.json \
   --port 3847
 ```
 
-Routes: `/` (spec), `/dashboard`, `/plan`, `/api/comments`, `/api/state`. Comments persist to `.kryptonite/{EPIC}/comments.json` and survive server restarts.
+Routes: `/` (spec), `/dashboard`, `/plan`, `/api/comments`, `/api/state`. Comments persist to `<skill-path>/data/{PROJECT}/{EPIC}/comments.json` and survive server restarts.
 
 Tell user: spec is at http://localhost:3847, dashboard at /dashboard, click comment icons for feedback.
 
@@ -504,6 +553,80 @@ If the Spec Critic returns `NEEDS_REVISION`:
 If `APPROVED`:
 - Show spec to user for their review
 - Wait for comments, address them, regenerate if needed
+
+### Spec Versioning
+
+Every spec generation creates a versioned copy. The version lifecycle:
+
+1. **Initial generation** (Phase 10) → `spec-v1.html`, `spec.html` = copy of v1
+2. **Spec Critic fixes** (if NEEDS_REVISION) → `spec-v2.html`, `spec.html` updated
+3. **User comment resolution** (user says "apply comments") → next version
+4. **Mid-execution amendment** (story changes during Phase 12) → next version
+
+#### Version Registry
+
+Create `<skill-path>/data/{PROJECT}/{EPIC}/spec-versions.json` on first spec generation:
+
+```json
+{
+  "current_version": 1,
+  "versions": [
+    {
+      "version": 1,
+      "generated_at": "2026-05-26T10:00:00Z",
+      "trigger": "phase-10-initial",
+      "spec_file": "spec-v1.html",
+      "changes_from_previous": []
+    }
+  ]
+}
+```
+
+#### Revision Triggers
+
+| Trigger | Automatic? | When |
+|---------|-----------|------|
+| Spec Critic NEEDS_REVISION | Yes | After Phase 10 initial generation |
+| User says "apply comments" / "update the spec" | User-initiated | During spec review or Phase 12 |
+| Story amendment during Phase 12 | Automatic | After amendment written to state.json |
+
+#### Revision Flow
+
+When revision is triggered:
+1. Archive current spec: copy `spec.html` → `spec-v{N}.html`
+2. Regenerate `spec.html` incorporating accepted comments or amendments
+3. Append version entry to `spec-versions.json`
+4. Mark resolved comments with `applied_in_version: N+1`
+5. Dispatch Spec Critic in re-validation mode (only checks changed sections)
+
+#### Comment Resolution
+
+Each comment in `comments.json` gains a `resolution` object when resolved:
+```json
+{
+  "id": 4,
+  "section": "us-007",
+  "text": "...",
+  "timestamp": 1716714000000,
+  "resolution": {
+    "status": "accepted",
+    "resolved_at": "2026-05-26T13:45:00Z",
+    "resolution_note": "Added to acceptance criteria",
+    "applied_in_version": 3
+  }
+}
+```
+
+Resolution statuses: `"accepted"` (incorporated), `"rejected"` (acknowledged, not changing), `"deferred"` (valid, for later).
+
+#### "Apply Comments" Command
+
+When the user says "apply comments" or "update the spec":
+1. Read comments.json — find all unresolved comments
+2. For each: propose resolution (accept/reject/defer) to user
+3. Batch-resolve all accepted
+4. Trigger spec revision
+5. Show diff summary: "Spec updated to v{N}: [changes]"
 
 ---
 
@@ -605,7 +728,7 @@ node <skill-path>/scripts/comment-server.js --visual-only --port 3847
 
 ### State File Location
 
-`.kryptonite/{EPIC}/state.json` — resolved from the active epic
+`<skill-path>/data/{PROJECT}/{EPIC}/state.json` — resolved from the active epic via `active.json`
 
 ### State Machine
 
@@ -654,22 +777,7 @@ The `/dashboard` route renders a live view of state.json: progress bar, wave bre
 
 ## Commit Rules
 
-Commit after every meaningful state change. This creates a traceable history of how the spec evolved and how stories were implemented.
-
-### Phase Commits (in the project repo where `.kryptonite/` lives)
-
-| When | Commit Message |
-|------|---------------|
-| Phase 4 complete (parties defined) | `kryptonite({EPIC}): define parties` |
-| Phase 5 complete (spikes executed) | `kryptonite({EPIC}): complete spikes` |
-| Phase 6 complete (re-scope done) | `kryptonite({EPIC}): re-scope after spike findings` |
-| Phase 7 complete (tech guidance) | `kryptonite({EPIC}): technical guidance` |
-| Phase 8 complete (DOD + mocks) | `kryptonite({EPIC}): define DOD and approve mocks` |
-| Phase 10 (spec generated) | `kryptonite({EPIC}): generate spec` |
-| Phase 11 (plan approved) | `kryptonite({EPIC}): approve implementation plan` |
-| Mock approved | `kryptonite({EPIC}): approve mock for {story-id}` |
-| Spike finding written | `kryptonite({EPIC}): spike {story-id} complete` |
-| Epic completed | `kryptonite({EPIC}): epic complete` |
+Only CODE commits go into repos. Kryptonite state lives in the plugin folder and is never committed to any project repo.
 
 ### Story Commits (in the story's assigned repo)
 
@@ -678,16 +786,15 @@ Commit after every meaningful state change. This creates a traceable history of 
 | Coder implements story | `feat({story-id}): {short description}` |
 | Coder fixes QA failure | `fix({story-id}): address QA feedback` |
 | Coder fixes review feedback | `fix({story-id}): address review feedback` |
+| Coder re-applies after merge conflict | `feat({story-id}): re-apply after conflict with {other-story}` |
 | Story fully validated (done) | No extra commit — the last fix/feat commit is the final one |
 
 ### Rules
 
-- **Phase commits go in the repo where `.kryptonite/` lives** — they track spec/plan/state evolution
-- **Story commits go in the story's assigned repo** — they track code changes
-- **Commit includes only relevant files** — don't commit unrelated changes alongside kryptonite state
+- **Only Coder agents commit to repos** — the orchestrator never commits state files
+- **State tracking is file-based** — state.json changes are persisted via writes to the plugin data folder (with backup protocol), not via git
 - **For multi-repo stories**: each repo gets its own commit independently. `state.json` records both SHAs.
-- **Never commit secrets** — testing_notes in repos.json may reference credentials but those should come from env vars or a vault, not be committed
-- **The Coder agent commits as part of its implementation** — the orchestrator commits phase transitions
+- **Never commit secrets** — testing_notes in repos.json may reference credentials but those should come from env vars or a vault
 
 ---
 

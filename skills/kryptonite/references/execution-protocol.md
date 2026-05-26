@@ -72,6 +72,9 @@ For each story in the current wave:
       → set status = "in_review", dispatch Reviewer
     if dod_validation.all_passed === false:
       → set status = "in_progress", re-dispatch Coder with failures
+    if dod_validation.status === "INFRA_DEGRADED":
+      → re-run infrastructure setup for affected repo
+      → re-dispatch QA (do NOT change story status, do NOT increment attempts)
 
   if status === "in_review":
     READ story.review_status from state.json
@@ -113,6 +116,54 @@ Spikes execute first. For each spike:
 3. Dispatch **QA** agent to validate via `file_exists` method
 4. If the Researcher's findings include implications for dependent stories, update those stories' acceptance criteria and DOD in state.json before proceeding to Wave 1
 
+## Pre-Wave Infrastructure Setup
+
+Before dispatching ANY Coder agent for a wave, the orchestrator verifies all repos involved are in a working state. This prevents QA failures caused by broken infrastructure from being misattributed to Coder bugs.
+
+**Trigger:** Runs once at the start of each wave (including Wave 1). Also re-runs if a wave is retried or if QA reports `INFRA_DEGRADED`.
+
+**Process (for each repo involved in the wave, serial):**
+
+1. **Install dependencies** (if lockfile newer than installed or vendor/node_modules missing)
+2. **Check port availability** — if port from `repo.run` is in use by another process, report conflict
+3. **Start the app** — run `repo.run` in background, poll port (up to 30s) until it responds
+4. **Run migrations** — determine command from stack (Rails: `bin/rails db:migrate RAILS_ENV=development && bin/rails db:migrate RAILS_ENV=test`, Prisma: `npx prisma migrate deploy`, Django: `python manage.py migrate`)
+5. **Seed data** — if `testing_notes` specifies seed commands (lines starting with `Seed:` or `seed:`), run them
+6. **Smoke check** — HTTP GET to `localhost:{port}/`, expect any 2xx/3xx response
+
+**On failure (any step):**
+- Do NOT dispatch any Coder agents
+- Do NOT change any story statuses
+- Report to user:
+  ```
+  INFRASTRUCTURE SETUP FAILED — Wave {N} cannot start.
+
+  Repo: {repo_name}
+  Step: {which step failed}
+  Error: {stderr or timeout message}
+  Command: {exact command that failed}
+  Path: {repo.path}
+
+  Action needed: fix the infrastructure issue and resume.
+  ```
+- Set `state.json` → `infrastructure.wave_{N}.status = "failed"` with error details
+- HALT execution
+
+**State tracking:** Record setup state in state.json:
+```json
+{
+  "infrastructure": {
+    "wave_1": {
+      "status": "ready",
+      "verified_at": "ISO timestamp",
+      "repos": {
+        "api": { "port": 3000, "pid": 12345, "migrations": "current", "seeded": true }
+      }
+    }
+  }
+}
+```
+
 ## Parallel Agent Dispatch (Waves 1+)
 
 For each wave, execute stories that can run in parallel simultaneously:
@@ -142,7 +193,7 @@ For each wave, execute stories that can run in parallel simultaneously:
    - Record which agent implemented it
    - Record DOD validation results
    - **Cleanup**: delete the story's worktree branch
-   - **Commit state change**: orchestrator commits `.kryptonite/` state update in the project repo
+   - **Write state** (with backup protocol — no git commit)
 7. **Sequential stories** within a wave run after their dependencies finish
 
 ## Worktree Isolation Protocol
@@ -164,8 +215,18 @@ phase (parallel, no tests) from the testing phase (serial, on main).
 
 ### Merge Order
 
-First-done-first-merged within a parallel group. When multiple Coders finish
-simultaneously, merge in order: dependency order > priority > story ID.
+If the Plan Critic produced a `recommended_merge_order` for this parallel group,
+use it as the PRIMARY ordering. When multiple Coders finish simultaneously, merge
+in the recommended order (not first-done-first-merged).
+
+Priority chain: recommended_merge_order > dependency order > priority > story ID.
+
+If no recommendation exists for a group, fall back to first-done-first-merged with
+tiebreaker: dependency order > priority > story ID.
+
+When a merge order is specified, the orchestrator waits for the first-in-order story
+to finish before merging ANY story in that ordered pair. Stories without ordering
+constraints still merge first-done-first-merged.
 
 ### State Tracking
 
@@ -228,13 +289,10 @@ The Coder agent commits in the story's assigned repo:
 - `feat({story-id}): {description}` — initial implementation
 - `fix({story-id}): address QA feedback` — after QA failure
 - `fix({story-id}): address review feedback` — after Reviewer rejection
+- `feat({story-id}): re-apply after conflict with {other-story}` — after merge conflict resolution
 
-### Orchestrator Commits (in project repo where .kryptonite/ lives)
-The orchestrator commits `.kryptonite/` state changes at these points:
-- After each spike completes: `kryptonite({EPIC}): spike {story-id} complete`
-- After each story reaches "done": `kryptonite({EPIC}): {story-id} validated`
-- After UAT passes for a wave: `kryptonite({EPIC}): wave {N} complete`
-- After epic completion: `kryptonite({EPIC}): epic complete`
+### State Tracking (no git commits)
+State changes are persisted via file writes to the plugin data folder (`<skill-path>/data/{PROJECT}/{EPIC}/state.json`). The orchestrator does NOT commit state files to any repo. The backup protocol (copy to `.bak` before every write) provides recovery instead of git history.
 
 ### Multi-Repo
 Each repo gets its own commits independently. `state.json` records the commit SHA from each repo — that's the only cross-repo link. No git-level coordination (tags, submodules, etc.).
@@ -285,6 +343,13 @@ Additional between-wave steps:
 - Update the dashboard (state.json is the source of truth)
 - Show a wave completion summary with DOD pass/fail per story
 - If a regression is detected (previously passing DOD now fails), STOP and fix before continuing
+
+**Infrastructure re-verification:**
+- Re-run smoke check for all repos in the upcoming wave
+- If any app crashed during the previous wave, restart it
+- Run any new migrations from previous-wave stories
+- Do NOT re-install deps or re-seed (only on Wave 1 or after explicit reset)
+
 - Then proceed to **UAT** before the next wave
 
 ## User Acceptance Testing (Per Wave)
@@ -347,9 +412,10 @@ If a story's requirements need to change during execution:
 1. Pause execution (don't dispatch new stories)
 2. Update the story's acceptance_criteria and/or definition_of_done in state.json
 3. Set `"amended": true` on the story and append to `amendment_history`
-4. If DOD validation commands changed, mark the story as "pending" (re-do it)
-5. If the change affects wave ordering (new dependency), re-plan remaining waves
-6. Resume execution
+4. Trigger spec revision: archive current spec, regenerate with amended story details, append version to spec-versions.json. This is non-blocking — execution continues.
+5. If DOD validation commands changed, mark the story as "pending" (re-do it)
+6. If the change affects wave ordering (new dependency), re-plan remaining waves
+7. Resume execution
 
 The dashboard shows amended stories with a visual indicator.
 
