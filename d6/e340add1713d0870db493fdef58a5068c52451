@@ -1,0 +1,23 @@
+README.md
+  s_87e222af04e566::t_357d3a3d8ccc38 1-60,62-93,95-105,107,109,111-122,124-128,131,134-140,142-144,146,148,150-157,159,161-163,165-185,187-189,193-194,196-202,205,207-209,211,213-219,221-222,224,226,230-239,241,243
+assets/banner-dark.svg
+  s_87e222af04e566::t_d1bb342f2be8a6 1-59
+assets/banner-light.svg
+  s_87e222af04e566::t_e544a6c56bc4cc 1-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "d6e340add1713d0870db493fdef58a5068c52451",
+  "prompts": {},
+  "sessions": {
+    "s_87e222af04e566": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "53a8e9e7-8be7-4610-aecd-f3ec9935a71c",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
