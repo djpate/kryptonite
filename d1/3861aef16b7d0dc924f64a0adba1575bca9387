@@ -1,0 +1,45 @@
+README.md
+  s_d4c9d02f33a1b8::t_49c96d8acaada2 102,104-107,109
+  s_d4c9d02f33a1b8::t_05a00a3d002455 30
+  s_d4c9d02f33a1b8::t_3e0a0dc1ba11e4 181
+  s_d4c9d02f33a1b8::t_e3772e80b21be3 147
+  s_d4c9d02f33a1b8::t_61b2281560b282 209-210,222
+  s_d4c9d02f33a1b8::t_490619d4dcfddc 234
+  s_d4c9d02f33a1b8::t_46873fec63633a 249-250,252,254
+skills/kryptonite/agents/orchestrator.md
+  s_d4c9d02f33a1b8::t_f944f07a1b9a7e 38-50,56-106
+  s_d4c9d02f33a1b8::t_b200d72a64ac8a 145-147
+skills/kryptonite/SKILL.md
+  s_d4c9d02f33a1b8::t_fe4d2a7a9bd1e3 148
+  s_d4c9d02f33a1b8::t_320307b2d18879 166
+  s_d4c9d02f33a1b8::t_b370e78a7c119d 183-184,188,190,192-194,197,199-200
+skills/kryptonite/references/execution-protocol.md
+  s_d4c9d02f33a1b8::t_7e08a9f75aa4b5 121-125,130,135,144,148-222
+skills/kryptonite/agents/coder.md
+  s_d4c9d02f33a1b8::t_0048fbf59cb9c7 8,10
+  s_d4c9d02f33a1b8::t_73a4ecb3ac1b5c 89,93-94,96-109
+  s_d4c9d02f33a1b8::t_23f69cbf67a4f9 48-49,52,55-63
+  s_d4c9d02f33a1b8::t_7c6e976cfeea49 25,27-44
+  s_d4c9d02f33a1b8::t_0894139e36e06f 67-72,74-85
+  s_d4c9d02f33a1b8::t_0aa4cee0314e33 121-123
+  s_d4c9d02f33a1b8::t_f0cf7a19574a76 129-130
+skills/kryptonite/agents/qa.md
+  s_d4c9d02f33a1b8::t_ce16a075e861a0 19
+  s_d4c9d02f33a1b8::t_56a437f8c32886 38,40-42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "d13861aef16b7d0dc924f64a0adba1575bca9387",
+  "prompts": {},
+  "sessions": {
+    "s_d4c9d02f33a1b8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bee49f98-a6c3-446f-bed3-07cd784d633a",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
