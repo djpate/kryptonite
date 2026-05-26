@@ -1,0 +1,25 @@
+README.md
+  s_d4c9d02f33a1b8::t_4c720780c52b3b 147
+  s_d4c9d02f33a1b8::t_05bd7085927b99 214,224,227,239-240,242
+  s_d4c9d02f33a1b8::t_ea85b69863facc 118
+  s_d4c9d02f33a1b8::t_91a3f900e95b13 13
+  s_d4c9d02f33a1b8::t_f88b2a82f75cf7 105,107-108,110
+  s_d4c9d02f33a1b8::t_912f5130507052 281-295,298-299
+  s_d4c9d02f33a1b8::t_77856ea324999e 257,259-260,269-272
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "04c3f02fd853a97fb2bd02d82217f74a37c6c246",
+  "prompts": {},
+  "sessions": {
+    "s_d4c9d02f33a1b8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bee49f98-a6c3-446f-bed3-07cd784d633a",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
