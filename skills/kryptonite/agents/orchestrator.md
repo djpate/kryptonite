@@ -49,8 +49,10 @@ For each wave (0, 1, 2, ...):
       4. Dispatch QA (full DOD validation)
       5. QA PASS → Dispatch Reviewer
       6. QA FAIL → re-dispatch Coder on main with failure details
-      7. Reviewer APPROVED → mark "done", cleanup branch
+      7. Reviewer APPROVED → Dispatch Code Reviewer
       8. Reviewer NEEDS_FIXES → re-dispatch Coder on main with fix list
+      9. Code Reviewer APPROVED → mark "done", cleanup branch
+     10. Code Reviewer NEEDS_FIXES → re-dispatch Coder on main with fix list
     ↓
     All stories in group done → next group
   ↓
@@ -85,8 +87,10 @@ For each wave:
       4. Dispatch QA (full DOD validation — this is the ONLY testing)
       5. QA ALL_PASS → Dispatch Reviewer
       6. QA HAS_FAILURES → re-dispatch Coder (on main, mode: `fix_on_main`, with failure details)
-      7. Reviewer APPROVED → mark "done", cleanup branch + worktree
+      7. Reviewer APPROVED → Dispatch Code Reviewer
       8. Reviewer NEEDS_FIXES → re-dispatch Coder (on main, with fix list)
+      9. Code Reviewer APPROVED → mark "done", cleanup branch + worktree
+     10. Code Reviewer NEEDS_FIXES → re-dispatch Coder (on main, with fix list)
 
     After all stories in group done → next group
 
@@ -126,7 +130,8 @@ Use the least powerful (cheapest/fastest) model that can handle each role:
 | Coder (simple story) | fast | Clear spec, 1-2 files, mechanical |
 | Coder (complex story) | standard | Multi-file coordination, judgment needed |
 | QA | fast | Executing commands and comparing output — no reasoning needed |
-| Reviewer | capable | Needs to understand architecture, judge quality |
+| Reviewer | fast | Spec compliance check — mechanical comparison against criteria |
+| Code Reviewer | capable | Needs to understand architecture, judge quality |
 | Researcher | capable | Needs broad knowledge, synthesis, judgment |
 | Designer | capable | Creative work, visual judgment |
 
@@ -144,8 +149,10 @@ See `references/execution-protocol.md` for the full state machine, legal transit
 **Before every state.json write, check invariants:**
 1. Cannot mark `done` unless `dod_validation.all_passed === true`
 2. Cannot mark `done` unless `review_status === "approved"`
-3. Cannot enter `in_review` unless `dod_validation.all_passed === true`
-4. Cannot enter `in_progress` unless dependencies are met
+3. Cannot mark `done` unless `code_review_status === "approved"`
+4. Cannot enter `in_review` unless `dod_validation.all_passed === true`
+5. Cannot enter `code_review` unless `review_status === "approved"`
+6. Cannot enter `in_progress` unless dependencies are met
 
 **If an invariant would be violated: HALT. Do not write. Report the illegal state.**
 
@@ -165,6 +172,7 @@ Fields to update:
 - `merge_status`: `pending` → `merged` (or `conflict` if merge fails)
 - `dod_validation`: from QA's report (the SOURCE OF TRUTH for whether DOD passes)
 - `review_status`: from Reviewer's report
+- `code_review_status`: from Code Reviewer's report
 - `test_results`: from QA's report
 - `implemented_by`: agent model used
 - `started_at` / `completed_at`: timestamps

@@ -13,7 +13,9 @@ LEGAL TRANSITIONS:
   qa_validation → in_progress    (when QA reports HAS_FAILURES — back to Coder)
   qa_validation → in_review      (when QA reports ALL_PASS — only transition if dod_validation.all_passed === true)
   in_review     → in_progress    (when Reviewer reports NEEDS_FIXES — back to Coder)
-  in_review     → done           (when Reviewer reports APPROVED)
+  in_review     → code_review    (when Reviewer reports APPROVED — dispatch Code Reviewer)
+  code_review   → in_progress    (when Code Reviewer reports NEEDS_FIXES — back to Coder)
+  code_review   → done           (when Code Reviewer reports APPROVED)
   pending       → cancelled
   pending       → deferred
   in_progress   → blocked        (when Coder reports BLOCKED)
@@ -21,9 +23,10 @@ LEGAL TRANSITIONS:
 
 ILLEGAL (never allowed):
   in_progress   → done           (SKIPS QA — forbidden)
-  qa_validation → done           (SKIPS Reviewer — forbidden)
+  qa_validation → done           (SKIPS Reviewer + Code Reviewer — forbidden)
+  in_review     → done           (SKIPS Code Reviewer — forbidden)
   pending       → done           (SKIPS everything — forbidden)
-  ANY           → done           (unless dod_validation.all_passed === true AND review_status === "approved")
+  ANY           → done           (unless dod_validation.all_passed === true AND review_status === "approved" AND code_review_status === "approved")
 ```
 
 ### Invariants (checked before EVERY state write)
@@ -41,11 +44,19 @@ INVARIANT 2: Cannot mark "done" without review approval
   story.status === "done" REQUIRES:
     story.review_status === "approved"
 
-INVARIANT 3: Cannot enter "in_review" without passing QA
+INVARIANT 3: Cannot mark "done" without code review approval
+  story.status === "done" REQUIRES:
+    story.code_review_status === "approved"
+
+INVARIANT 4: Cannot enter "in_review" without passing QA
   story.status === "in_review" REQUIRES:
     story.dod_validation.all_passed === true
 
-INVARIANT 4: Cannot dispatch without dependencies met
+INVARIANT 5: Cannot enter "code_review" without Reviewer approval
+  story.status === "code_review" REQUIRES:
+    story.review_status === "approved"
+
+INVARIANT 6: Cannot dispatch without dependencies met
   story.status === "in_progress" REQUIRES:
     ALL story.dependencies have status "done" OR "cancelled"/"deferred"
 ```
@@ -78,9 +89,16 @@ For each story in the current wave:
 
   if status === "in_review":
     READ story.review_status from state.json
-    if review_status === "approved" AND dod_validation.all_passed === true:
-      → set status = "done"
+    if review_status === "approved":
+      → set status = "code_review", dispatch Code Reviewer
     if review_status === "needs_fixes":
+      → set status = "in_progress", re-dispatch Coder with fix list
+
+  if status === "code_review":
+    READ story.code_review_status from state.json
+    if code_review_status === "approved":
+      → set status = "done"
+    if code_review_status === "needs_fixes":
       → set status = "in_progress", re-dispatch Coder with fix list
 
   if status === "done":
@@ -175,7 +193,8 @@ For each wave, execute stories that can run in parallel simultaneously:
    - **If merge conflict**: abort merge, re-dispatch Coder on main with conflict details (mode: `fix_on_main`)
    - **Run migrations**: appropriate `db:migrate` for the repo's stack
    - **Dispatch QA** (`agents/qa.md`) — runs every DOD item's validation command. ALL must pass.
-   - **Dispatch Reviewer** (`agents/reviewer.md`) — checks spec compliance + code quality
+   - **Dispatch Reviewer** (`agents/reviewer.md`) — checks spec compliance (acceptance criteria met, nothing extra)
+   - **Dispatch Code Reviewer** (`agents/code-reviewer.md`) — runs /code-review, checks quality
 4. **QA is a hard gate** — if any DOD validation fails:
    - QA reports HAS_FAILURES with details (expected vs actual per item)
    - Orchestrator re-dispatches Coder on main (mode: `fix_on_main`) with the failure details
@@ -186,7 +205,12 @@ For each wave, execute stories that can run in parallel simultaneously:
    - Orchestrator re-dispatches Coder on main with the fix list
    - After Coder fixes, re-dispatch QA (full DOD re-check), then Reviewer
    - Repeat until Reviewer reports APPROVED
-6. **Update state** only after ALL gates pass:
+   - Only THEN dispatch Code Reviewer
+6. **Code Reviewer is a hard gate** — if NEEDS_FIXES:
+   - Orchestrator re-dispatches Coder on main with the quality fix list
+   - After Coder fixes, re-dispatch QA (re-check), then Reviewer (re-check), then Code Reviewer
+   - Repeat until Code Reviewer reports APPROVED
+7. **Update state** only after ALL gates pass:
    - Set status to "done"
    - Record commit SHA (from Coder's last commit in the story's repo)
    - Record test results (pass/fail + details per DOD item)
@@ -194,7 +218,7 @@ For each wave, execute stories that can run in parallel simultaneously:
    - Record DOD validation results
    - **Cleanup**: delete the story's worktree branch
    - **Write state** (with backup protocol — no git commit)
-7. **Sequential stories** within a wave run after their dependencies finish
+8. **Sequential stories** within a wave run after their dependencies finish
 
 ## Worktree Isolation Protocol
 

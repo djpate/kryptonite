@@ -18,7 +18,7 @@
   "properties": {
     "id": {
       "type": "string",
-      "pattern": "^US-\\d{3,}$",
+      "pattern": "^US-\\d{3,}[a-z]?$",
       "description": "Unique story identifier, e.g. US-001"
     },
     "type": {
@@ -139,7 +139,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "pattern": "^US-\\d{3,}$"
+        "pattern": "^US-\\d{3,}[a-z]?$"
       },
       "description": "List of story IDs that must be completed before this story can be implemented. Spikes that inform a story must be listed as dependencies. Empty array if no dependencies."
     },
@@ -186,6 +186,54 @@
         }
       },
       "description": "History of amendments made to this story after plan approval."
+    },
+    "wave": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Wave index this story is assigned to during Phase 11 plan generation. Stories at wave N may only depend on stories at waves < N."
+    },
+    "parallel_group": {
+      "type": "string",
+      "description": "Identifier for the parallel group this story belongs to within its wave. Stories sharing a parallel_group are dispatched concurrently; stories in different groups within the same wave may also run in parallel but are tracked separately for file-conflict reasoning."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "in_progress", "qa_validation", "in_review", "done", "blocked", "cancelled", "deferred"],
+      "description": "Execution-time state machine. See execution-protocol.md for transition rules."
+    },
+    "commit_sha": {
+      "type": "string",
+      "description": "SHA of the commit that implemented this story (recorded by the Coder agent)."
+    },
+    "dod_validation": {
+      "type": "object",
+      "description": "Result of running every DOD item. Written by the QA agent."
+    },
+    "review_status": {
+      "type": ["string", "null"],
+      "enum": [null, "approved", "needs_fixes"],
+      "description": "Result of the Reviewer agent's pass."
+    },
+    "test_results": {
+      "type": "object",
+      "description": "Aggregate test results captured by the QA agent."
+    },
+    "implemented_by": {
+      "type": "string",
+      "description": "Identifier of the agent / model that implemented this story."
+    },
+    "started_at": {
+      "type": "string",
+      "description": "ISO timestamp of when execution began."
+    },
+    "completed_at": {
+      "type": "string",
+      "description": "ISO timestamp of when the story reached `done`."
+    },
+    "attempts": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of QA/Review cycles for this story. Escalate to user after 3."
     }
   },
   "additionalProperties": false

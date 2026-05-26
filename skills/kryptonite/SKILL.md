@@ -215,14 +215,15 @@ Only Phase 9 dispatches subagents. All communication is hub-and-spoke: agents ne
 | **Researcher** | `agents/researcher.md` | Spike tasks: investigate options, produce decision documents | Wave 0 execution |
 | **Coder** | `agents/coder.md` | Feature implementation: write code in worktree (no tests), commit to story branch | Feature stories in Waves 1+ |
 | **QA** | `agents/qa.md` | DOD validation + UAT: run automated checks and per-wave user flow testing | After Coder reports DONE (DOD mode) and after wave completion (UAT mode) |
-| **Reviewer** | `agents/reviewer.md` | Spec compliance + code quality review | After QA passes ALL checks |
+| **Reviewer** | `agents/reviewer.md` | Spec compliance: acceptance criteria met, nothing extra, nothing missing | After QA passes ALL checks |
+| **Code Reviewer** | `agents/code-reviewer.md` | Code quality: runs /code-review, flags complexity and security issues | After Reviewer approves |
 | **Spec Critic** | `agents/spec-critic.md` | Review spec for gaps, contradictions, weak DODs | After Phase 10 (spec generation) |
 | **Plan Critic** | `agents/plan-critic.md` | Review plan for conflicts, ordering issues, infra gaps | After Phase 11 (plan generation) |
 
 ### Orchestrator Responsibilities (read `agents/orchestrator.md`)
 
 1. During Phases 1-11, the main session IS the interviewer — follow `agents/interviewer.md` instructions directly
-2. After plan approval, execute waves by dispatching Researcher/Coder/QA/Reviewer
+2. After plan approval, execute waves by dispatching Researcher/Coder/QA/Reviewer/Code Reviewer
 3. Enforce dependency gate before every dispatch
 4. Route fix feedback: QA failure → Coder, Reviewer rejection → Coder
 5. Update state.json after every agent completes
@@ -246,8 +247,11 @@ Run migrations, dispatch QA → run all DOD validations
 QA ALL_PASS? → Dispatch Reviewer
 QA HAS_FAILURES? → Re-dispatch Coder on main with failure details
   ↓
-Reviewer APPROVED? → Update state, mark "done", cleanup branch
+Reviewer APPROVED? → Dispatch Code Reviewer
 Reviewer NEEDS_FIXES? → Re-dispatch Coder on main with fix list
+  ↓
+Code Reviewer APPROVED? → Update state, mark "done", cleanup branch
+Code Reviewer NEEDS_FIXES? → Re-dispatch Coder on main with fix list
   ↓
 (Loop until approved or escalate after 3 attempts)
 ```
