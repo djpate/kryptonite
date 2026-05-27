@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Phase 11 Gate — Plan Generated",
+  "description": "plan.html exists, waves populated, every feature story has wave and parallel_group assigned",
+  "type": "object",
+  "required": ["epic", "state"],
+  "properties": {
+    "epic": {
+      "type": "object",
+      "required": ["current_phase"],
+      "properties": {
+        "current_phase": { "type": "integer", "minimum": 11 }
+      }
+    },
+    "state": {
+      "type": "object",
+      "required": ["stories", "waves"],
+      "properties": {
+        "stories": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "type"],
+            "if": {
+              "properties": { "type": { "const": "feature" } },
+              "required": ["type"]
+            },
+            "then": {
+              "required": ["wave", "parallel_group"],
+              "properties": {
+                "wave": { "type": "integer", "minimum": 0 },
+                "parallel_group": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        },
+        "waves": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "stories", "parallel_groups"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "name": { "type": "string", "minLength": 1 },
+              "stories": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string" }
+              },
+              "parallel_groups": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

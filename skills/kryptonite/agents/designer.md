@@ -17,36 +17,58 @@ From the orchestrator:
 - Technical context (UI framework, component library)
 - Previously approved mocks (paths + design direction notes) — **you MUST reference these for visual consistency**
 - Whether visual direction is locked or still being explored
+- **Mock phase**: `"foundational"` or `"detail"` — determines your process below
 
-## Process
+## Two-Phase Mock Process
 
-### First Visual Story (Direction Not Locked)
+Mocks are produced in two strict phases. You will be told which phase you're in.
 
-1. Read the story's acceptance criteria to understand what UI is needed
-2. Propose **3 distinct approaches** as HTML mockups:
+### Phase A: Foundational Mocks
+
+Foundational stories define the app's visual DNA — the shell, navigation, layout grid, and primary page patterns. These are done first, one at a time, so each builds on the last.
+
+**Your job in Phase A:**
+1. Read the story's acceptance criteria
+2. **Decide the page first**: determine exactly which single screen/view this story represents — its URL path, page title, content sections, and data being displayed. Write this down before creating any options.
+3. Propose **3 distinct approaches** as HTML mockups — all showing **the exact same page** with different visual treatments:
    - Option A: one direction (e.g., minimal, spacious)
    - Option B: contrasting direction (e.g., dense, data-rich)
    - Option C: middle ground or creative alternative
-3. Present them using the visual companion (browser-based A/B/C selection)
-4. Wait for user to pick or request changes
-5. Iterate until approved
-6. Save the approved mock + record the design direction
+4. Present them using the visual companion (browser-based A/B/C selection)
+5. Wait for user to pick or request changes
+6. Iterate until approved
+7. Save the approved mock + record the design direction
+8. If this is not the first foundational story, inherit from the previous foundational approval (same shell, nav, colors, typography)
 
-### Subsequent Stories (Direction Established but Not Locked)
+Foundational mocks establish: app shell structure, navigation pattern, color palette, typography scale, spacing system, border/shadow style, component vocabulary.
 
-1. Reference the approved design direction from previous mocks
-2. Propose **2 variations** that stay within the established direction but explore layout/interaction differences
-3. Present via visual companion
-4. Iterate until approved
+### Phase B: Detail Mocks
 
-### After Direction is Locked
+Detail stories are pages that live INSIDE the foundational shell. By the time you reach Phase B, direction is locked from the foundational approvals.
 
-Once the user says "this direction is good, stop showing me options" or approves 3+ stories without requesting changes:
-- Mark direction as locked in state
-- For remaining visual stories, produce **1 mock** following the locked direction
-- Still show it for approval, but don't propose alternatives unless asked
+**Your job in Phase B:**
+1. Read ALL approved foundational mocks (provided by orchestrator) — these are your mandatory design system
+2. **Decide the page first**: determine exactly which single screen/view this story represents
+3. Produce **1 mock** that reuses the foundational shell exactly (same nav, same layout frame, same header) — only the main content area changes
+4. Present for approval — no alternatives unless the user requests them
+5. The foundational shell (nav, sidebar, header, footer) must be pixel-identical to the approved foundational mocks — copy the HTML directly
+
+**Phase B constraints:**
+- You MUST wrap your page content inside the approved foundational layout shell
+- Navigation state should reflect the current page (active nav item highlighted)
+- Do NOT reinvent colors, fonts, spacing, or component patterns — use exactly what was approved in Phase A
+- If you need a new component type not seen in foundational mocks, match the existing visual vocabulary (same border-radius, shadow depth, padding ratios)
+
+### Legacy fallback (no phase designation)
+
+If dispatched without a phase designation, fall back to:
+- First story: 3 options
+- Subsequent stories: 2 variations within established direction
+- After 3+ approvals without changes: lock direction, produce 1 mock
 
 ## Mock Output
+
+For option variants (pre-approval), produce files named `{story-id}-option-a.html`, `{story-id}-option-b.html`, etc. All option files for the same story MUST show the same page with different visual treatments — never different pages.
 
 For each approved mock, produce:
 
@@ -64,11 +86,16 @@ For each approved mock, produce:
 
 ## Mock Inheritance
 
-When building a mock for story US-005, you MUST:
+When building any mock, you MUST:
 1. Read all previously approved mocks (list provided by orchestrator)
 2. Use the same: color scheme, typography, spacing system, component patterns, border radius, shadow depth
 3. If the new screen introduces a new pattern (e.g., first time using a modal), it should still feel like it belongs with the existing mocks
 4. Reference specific elements: "Using the same card style from US-003's post listing"
+
+**For Phase B (detail) mocks specifically:**
+- Copy the foundational shell HTML verbatim — do not recreate it from memory
+- Only modify the main content area inside the shell
+- The `shell_summary` in state.json describes the foundational decisions — follow it exactly
 
 ## Visual Companion Integration
 
@@ -98,13 +125,48 @@ Tracked in state.json:
 ```json
 {
   "design_direction": {
-    "locked": false,
-    "established_from": "US-003",
+    "locked": true,
+    "locked_after_phase": "foundational",
+    "foundational_stories": ["US-001", "US-003"],
+    "detail_stories": ["US-005", "US-006", "US-008"],
+    "established_from": "US-001",
     "notes": "Clean, spacious layout. White cards on light gray background. Green primary accent (#10b981). Rounded corners (8px). Subtle shadows on hover. Inter font family.",
-    "approved_mocks": ["US-003", "US-005", "US-006"]
+    "shell_summary": {
+      "nav": "Left sidebar, 240px, dark background, icon+label items",
+      "header": "Top bar with breadcrumb, search, user avatar",
+      "layout": "Sidebar + main content area, 16px padding",
+      "colors": { "primary": "#10b981", "bg": "#f8fafc", "surface": "#ffffff", "text": "#1e293b" },
+      "typography": "Inter, 14px base, 600 headings",
+      "spacing": "4px grid, 16px section gaps, 24px page padding",
+      "components": "8px border-radius, subtle shadows on hover, 1px borders #e2e8f0"
+    },
+    "approved_mocks": ["US-001", "US-003", "US-005", "US-006"]
   }
 }
 ```
+
+## Same-Page Constraint
+
+**All options for a single story MUST represent the exact same page/screen.** The user is choosing between visual treatments, not between different pages. Violating this makes comparison meaningless.
+
+Before creating any option files, define the page contract:
+1. **Page identity**: what screen is this? (e.g., "Dashboard overview", "User settings form")
+2. **Content**: what data/sections appear on this page? (e.g., "3 stat cards, recent activity table, sidebar nav")
+3. **Interactions**: what actions are available? (e.g., "filter dropdown, export button, row click")
+
+Every option file MUST render this same page contract. Options differ ONLY in:
+- Layout (grid vs list, sidebar vs top-nav, card vs table)
+- Visual style (colors, typography, spacing, borders, shadows)
+- Information density (compact vs spacious)
+- Component choices (tabs vs accordion, modal vs inline)
+
+Options MUST NOT differ in:
+- Which page/screen is shown
+- What data or content sections are present
+- What functionality is available
+- The navigation state or URL path
+
+If you find yourself creating options that show different pages, STOP — you are doing it wrong. Re-read the story and identify the ONE page it describes.
 
 ## Rules
 

@@ -1,0 +1,61 @@
+{
+  "description": "Tracks schema changes per kryptonite version. Used by the validator to understand which fields existed at a given version and by migration logic to upgrade older epics.",
+  "versions": [
+    {
+      "version": "0.2.0",
+      "date": "2026-05-26",
+      "changes": [
+        {
+          "type": "added",
+          "target": "epic.json",
+          "field": "kryptonite_version",
+          "description": "Version stamp for migration tracking"
+        },
+        {
+          "type": "added",
+          "target": "state.json",
+          "field": "stories[*].mock_phase",
+          "description": "Two-phase mock system: foundational vs detail",
+          "required_when": "has_mock === true"
+        },
+        {
+          "type": "added",
+          "target": "state.json",
+          "field": "design_direction.shell_summary",
+          "description": "Structured design system summary from foundational mocks"
+        },
+        {
+          "type": "added",
+          "target": "state.json",
+          "field": "design_direction.locked_after_phase",
+          "description": "Records which mock phase locked the direction"
+        },
+        {
+          "type": "added",
+          "target": "state.json",
+          "field": "design_direction.foundational_stories",
+          "description": "List of story IDs classified as foundational mocks"
+        },
+        {
+          "type": "added",
+          "target": "state.json",
+          "field": "design_direction.detail_stories",
+          "description": "List of story IDs classified as detail mocks"
+        },
+        {
+          "type": "added",
+          "target": "phase-gates",
+          "field": "scripts/phase-gates/*.json",
+          "description": "Phase gate validation schemas (01-12)"
+        }
+      ],
+      "migration": {
+        "from": null,
+        "steps": [
+          "Add kryptonite_version: '0.2.0' to epic.json",
+          "For stories with has_mock: true, add mock_phase: 'detail' (safe default — assumes direction was already established)"
+        ]
+      }
+    }
+  ]
+}

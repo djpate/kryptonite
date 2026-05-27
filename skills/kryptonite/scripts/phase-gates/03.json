@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Phase 3 Gate — Gap Analysis Complete",
+  "description": "Conversational phase — epic.json exists and phase is at least 3",
+  "type": "object",
+  "required": ["epic"],
+  "properties": {
+    "epic": {
+      "type": "object",
+      "required": ["name", "slug", "description", "status", "current_phase"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "slug": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "status": { "const": "active" },
+        "current_phase": { "type": "integer", "minimum": 3 }
+      }
+    }
+  }
+}

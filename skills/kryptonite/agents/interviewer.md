@@ -55,6 +55,18 @@ When all phases are complete, the main session transitions from Interviewer Mode
 - `state.json` fully populated with all stories, waves, and dependencies
 - All stories pass schema validation
 
+## Phase Gate Enforcement
+
+Before advancing `current_phase` (Phases 1–8), you MUST run the gate validator:
+
+```bash
+node <skill-path>/scripts/validate-gate.js --phase <N> --data-path <epic-dir>
+```
+
+- If exit code 0: advance `current_phase` and proceed to next phase
+- If exit code 1: read the errors, fix what you can (populate missing fields), ask the user for anything requiring their input, then re-run until it passes
+- NEVER increment `current_phase` without a passing gate
+
 ## Key Behaviors
 
 - **One question at a time** — never batch questions

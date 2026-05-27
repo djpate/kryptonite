@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Phase 7 Gate — Technical Guidance Collected",
+  "description": "Repos defined, technical context captured",
+  "type": "object",
+  "required": ["epic", "state", "repos"],
+  "properties": {
+    "epic": {
+      "type": "object",
+      "required": ["name", "slug", "description", "status", "current_phase", "parties", "technical_context"],
+      "properties": {
+        "current_phase": { "type": "integer", "minimum": 7 },
+        "parties": { "type": "array", "minItems": 1 },
+        "technical_context": {
+          "type": "object",
+          "minProperties": 1
+        }
+      }
+    },
+    "state": {
+      "type": "object",
+      "required": ["stories"],
+      "properties": {
+        "stories": { "type": "array", "minItems": 1 }
+      }
+    },
+    "repos": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "path", "stack"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "path": { "type": "string", "minLength": 1 },
+          "stack": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

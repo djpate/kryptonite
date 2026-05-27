@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Phase 5 Gate — Spikes Executed",
+  "description": "All spike stories have findings files. Spike file existence checked semantically by the validator script.",
+  "type": "object",
+  "required": ["epic"],
+  "properties": {
+    "epic": {
+      "type": "object",
+      "required": ["name", "slug", "description", "status", "current_phase", "parties"],
+      "properties": {
+        "current_phase": { "type": "integer", "minimum": 5 },
+        "parties": { "type": "array", "minItems": 1 }
+      }
+    }
+  }
+}

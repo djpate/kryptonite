@@ -138,6 +138,7 @@ Each epic stores its own context:
 - `name`, `slug`, `description`
 - `status` — `active` / `completed`
 - `current_phase` — integer (1-12) indicating which phase the epic is in. Updated as you progress. Resume reads this directly.
+- `kryptonite_version` — the version of kryptonite that created this epic (from `package.json`). Used to determine which schema features were available at creation time and whether migration is needed.
 - `created_at`, `completed_at`
 - `parties` — array of {name, description, auth}
 - `technical_context` — shared patterns, non-repo-specific config
@@ -155,8 +156,9 @@ When starting fresh (no active epic, or user says "new epic"):
 1. Ask for the epic name/slug
 2. Compute project-id (from git remote or path)
 3. Create `<skill-path>/data/{PROJECT}/{EPIC}/`
-4. Update `active.json` to map this project path to the new epic
-5. Proceed to Phase 1
+4. Initialize `epic.json` with `kryptonite_version` read from `<skill-path>/../../package.json` (the plugin's root package.json)
+5. Update `active.json` to map this project path to the new epic
+6. Proceed to Phase 1
 
 ### Archiving an Epic
 
@@ -434,14 +436,41 @@ Now that spikes are done, scope is confirmed, repos are defined, and tech is dec
 
 Every story must conform to `references/story-schema.json`. See that file for the full schema including DOD validation methods (`curl`, `chrome_mcp`, `test_suite`, `file_exists`), Chrome MCP structured format, and field descriptions.
 
-### Step 1: Identify visual stories and batch-mock them.
+### Step 1: Identify visual stories and classify them into two mock phases.
 
-Mark visual stories with `"has_mock": true`. **Group by design context** (e.g., "admin screens" vs "user experience") and mock in batches:
-- Dispatch **Designer** agents in parallel per batch
-- Once ready, open the **`/compare`** view for the user — fullscreen side-by-side previews with click-to-pick
-- User clicks their preferred option for each story (arrow keys to navigate, number keys to pick)
-- Orchestrator reads selections from `/api/selections` once the user submits
-- Lock direction after 3+ approvals without changes
+Mark visual stories with `"has_mock": true`. Then classify each into one of two phases:
+
+**Phase A — Foundational Mocks** (done first, sequentially):
+These are the pages that establish the visual DNA of the app. They define the shell, navigation, and primary layout patterns that all other pages inherit. Typical foundational pages:
+- App shell / layout frame (sidebar, top nav, footer)
+- Main dashboard or landing view
+- Primary list/index page pattern
+- Primary detail/show page pattern
+
+Classify a story as foundational if other visual stories would need to inherit its layout, navigation, or structural patterns. Usually 2-4 stories max.
+
+**Phase B — Detail Mocks** (done after foundational mocks are approved):
+All remaining visual stories. These pages live INSIDE the foundational shell and must conform to the approved foundational direction.
+
+Mark each visual story in state.json with `"mock_phase": "foundational"` or `"mock_phase": "detail"`.
+
+#### Phase A execution (Foundational):
+
+1. Dispatch Designer agents for foundational stories **one at a time** (not parallel) — each subsequent foundational mock inherits from the previous approval
+2. Open the **`/compare`** view for the user — fullscreen side-by-side previews with click-to-pick
+3. User picks their preferred option
+4. Orchestrator reads selections from `/api/selections`
+5. After all foundational mocks are approved, record the **design system summary** in state.json: colors, typography, spacing, component patterns, nav style, layout grid
+6. Lock direction automatically after foundational phase completes
+
+#### Phase B execution (Detail):
+
+1. Provide every Detail Designer agent with the full set of approved foundational mocks + the design system summary as mandatory context
+2. Dispatch Designer agents in parallel per batch (these pages all conform to the locked direction)
+3. Open `/compare` view for user approval
+4. Detail mocks must reuse the foundational shell exactly — only the page content area varies
+
+**Do NOT start Phase B until all Phase A mocks are approved.** The foundational approvals are the source of truth for visual direction.
 
 Mocks stored at: `<skill-path>/data/{PROJECT}/{EPIC}/mocks/{story-id}.html` (variants: `{story-id}-option-a.html`)
 
@@ -520,7 +549,7 @@ Produce a comprehensive project specification including:
 
 Create the epic directory and files at `<skill-path>/data/{PROJECT}/{EPIC}/`:
 - **epic.json** — epic context (description, parties, tech, design direction). See schema in File Structure section above.
-- **state.json** — stories array (each conforming to story-schema.json + execution fields: `has_mock`, `mock_approved`, `amended`, `amendment_history`, `wave`, `status`, `commit_sha`, `dod_validation`, `test_results`, `implemented_by`, `started_at`, `completed_at`) and `waves` array.
+- **state.json** — stories array (each conforming to story-schema.json + execution fields: `has_mock`, `mock_phase` (`"foundational"` | `"detail"`), `mock_approved`, `amended`, `amendment_history`, `wave`, `status`, `commit_sha`, `dod_validation`, `test_results`, `implemented_by`, `started_at`, `completed_at`) and `waves` array.
 - Update `<skill-path>/data/active.json` to map this project to the new epic slug.
 
 ### Generate Branded HTML
@@ -817,5 +846,55 @@ Only CODE commits go into repos. Kryptonite state lives in the plugin folder and
 - **Server dies on execute-complete** — ephemeral review tool, not a permanent fixture
 - **Stories can be cancelled or deferred mid-execution** — update state and re-evaluate any dependents
 - **State machine is the authority** — DOD and review gates are enforced by state invariants, not by good intentions
-- **Update `current_phase` on every phase transition** — so resume always works
+- **Update `current_phase` on every phase transition** — only after phase gate validation passes
+- **Phase gates are hard gates** — `node scripts/validate-gate.js` must exit 0 before `current_phase` can increment
 - **Spikes before DODs, DODs before spec** — never generate artifacts from incomplete information
+
+---
+
+## Phase Gate Validation
+
+Every phase transition is gated by a code-based validator. Before incrementing `current_phase` in epic.json, you MUST run:
+
+```bash
+node <skill-path>/scripts/validate-gate.js --phase <N> --data-path <epic-dir>
+```
+
+Where `<N>` is the phase being completed (the current phase, not the next one).
+
+### Validation Flow
+
+1. Run the validator command
+2. If exit code **0** → gate passes, increment `current_phase`
+3. If exit code **1** → gate fails, read the error output:
+   - Fix issues you can resolve (populate missing fields, add required data)
+   - Ask the user for issues that require their input
+   - Re-run the validator after fixes
+   - Do NOT advance until exit code 0
+
+### What the Validator Checks
+
+Two layers:
+1. **Schema validation** (AJV) — structural correctness of epic.json, state.json, repos.json against per-phase JSON Schema definitions in `scripts/phase-gates/`
+2. **Semantic validation** — cross-reference integrity (party names, repo names), no circular dependencies, wave ordering correctness, required file existence (spike findings, spec.html, plan.html)
+
+### Error Output Format
+
+```
+FAIL: Phase 8 gate failed with 3 error(s):
+
+  ✗ SCHEMA /state/stories/5: must have required property 'definition_of_done'
+  ✗ SEMANTIC stories[US-012].party: "viewer" not found in epic.json parties
+  ✗ SEMANTIC dependencies: circular dependency detected: US-003 → US-007 → US-003
+```
+
+### On Resume
+
+When resuming an epic, validate the gate for `current_phase - 1` to confirm state is consistent. If it fails, warn the user that state may be incomplete from a prior session.
+
+### Version Compatibility
+
+Each epic records its `kryptonite_version` at creation. When the validator warns about a version mismatch:
+1. Check `references/schema-changelog.json` for what changed between the epic's version and the current version
+2. Follow the `migration.steps` for each intermediate version to bring the epic's state up to date
+3. The changelog lists every added/modified field, which file it belongs to, and what the safe default is

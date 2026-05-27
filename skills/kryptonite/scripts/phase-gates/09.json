@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Phase 9 Gate — Schema Validation",
+  "description": "All stories pass full story-schema.json validation. Cross-references and cycles checked semantically.",
+  "type": "object",
+  "required": ["epic", "state", "repos"],
+  "properties": {
+    "epic": {
+      "type": "object",
+      "required": ["name", "slug", "description", "status", "current_phase", "parties", "technical_context"],
+      "properties": {
+        "current_phase": { "type": "integer", "minimum": 9 }
+      }
+    },
+    "state": {
+      "type": "object",
+      "required": ["stories"],
+      "properties": {
+        "stories": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "story-schema.json" }
+        }
+      }
+    },
+    "repos": {
+      "type": "array",
+      "minItems": 1
+    }
+  }
+}

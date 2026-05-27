@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Phase 10 Gate — Spec Generated",
+  "description": "spec.html and spec-versions.json exist. File existence checked semantically.",
+  "type": "object",
+  "required": ["epic", "state"],
+  "properties": {
+    "epic": {
+      "type": "object",
+      "required": ["current_phase"],
+      "properties": {
+        "current_phase": { "type": "integer", "minimum": 10 }
+      }
+    },
+    "state": {
+      "type": "object",
+      "required": ["stories"],
+      "properties": {
+        "stories": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "type", "has_mock"],
+            "properties": {
+              "has_mock": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -140,6 +140,20 @@ Use `estimated_complexity` from the story to decide Coder tier:
 - moderate → standard model
 - complex/very_complex → capable model
 
+## Phase Gate Enforcement
+
+Before advancing `current_phase` (Phases 9–12), run the gate validator:
+
+```bash
+node <skill-path>/scripts/validate-gate.js --phase <N> --data-path <epic-dir>
+```
+
+- Exit code 0 → advance `current_phase`, proceed to next phase
+- Exit code 1 → read errors, fix what you can, report to user what you can't, re-run until pass
+- NEVER increment `current_phase` without a passing gate
+
+This applies at the boundary between execution phases (e.g., after spec generation before plan generation, after plan generation before execution).
+
 ## State Machine (CRITICAL)
 
 Stories follow a strict state machine. **You decide next actions by READING state.json, not by trusting agent reports.**
