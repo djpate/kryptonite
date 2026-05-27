@@ -2,6 +2,55 @@
   "description": "Tracks schema changes per kryptonite version. Used by the validator to understand which fields existed at a given version and by migration logic to upgrade older epics.",
   "versions": [
     {
+      "version": "0.3.0",
+      "date": "2026-05-27",
+      "changes": [
+        {
+          "type": "added",
+          "target": "ui",
+          "field": "scripts/ui/",
+          "description": "Static frontend: DaisyUI + Tailwind + Alpine.js dark mode UI with Overview, Stories (kanban), Mocks (gallery+compare), Dashboard pages"
+        },
+        {
+          "type": "added",
+          "target": "comment-server.js",
+          "field": "GET /api/epic",
+          "description": "API endpoint returning epic.json content"
+        },
+        {
+          "type": "added",
+          "target": "comment-server.js",
+          "field": "GET /api/repos",
+          "description": "API endpoint returning repos.json as array"
+        },
+        {
+          "type": "added",
+          "target": "comment-server.js",
+          "field": "GET /api/epics, POST /api/epics/switch",
+          "description": "Epic switcher — list all epics and switch active context without restart"
+        },
+        {
+          "type": "changed",
+          "target": "comments.json",
+          "field": "structure",
+          "description": "Migrated from flat array to { spec_comments: [], story_comments: [] } with threading (parent_id) and resolve toggle"
+        },
+        {
+          "type": "added",
+          "target": "phase-gates",
+          "field": "checkStoryStatusInActiveWaves",
+          "description": "Phase 12 semantic check: stories in an in_progress wave must not be 'pending' or missing status"
+        }
+      ],
+      "migration": {
+        "from": "0.2.0",
+        "steps": [
+          "comments.json: if file is a plain array, it becomes { spec_comments: <array>, story_comments: [] } — handled automatically on load",
+          "Stories in active waves should have status updated from 'pending' to 'in_progress' when wave execution begins"
+        ]
+      }
+    },
+    {
       "version": "0.2.0",
       "date": "2026-05-26",
       "changes": [
