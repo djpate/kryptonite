@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kryptonite — Overview</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.min.css" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+  <script src="/ui/assets/app.js"></script>
+  <link rel="stylesheet" href="/ui/assets/style.css">
+</head>
+<body x-data x-init="$store.app.load()">
+  <div id="nav-container"></div>
+
+  <!-- Page Content -->
+  <div class="max-w-6xl mx-auto p-6" style="margin-top: 56px;" x-show="$store.app.epic">
+
+    <!-- Header -->
+    <div class="mb-6">
+      <div class="flex items-center gap-3 mb-2">
+        <h1 class="text-xl font-bold text-slate-100" x-text="$store.app.epic?.name"></h1>
+        <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-900/50 text-emerald-400 border border-emerald-700/50"
+              x-text="'Phase ' + ($store.app.epic?.current_phase || '?')"></span>
+      </div>
+      <p class="text-sm text-slate-400" x-text="$store.app.epic?.description"></p>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4 mb-6">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm text-slate-300"
+              x-text="(() => {
+                const stories = $store.app.state?.stories || [];
+                const done = stories.filter(s => s.status === 'done').length;
+                const total = stories.length;
+                const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                return done + ' / ' + total + ' stories done (' + pct + '%)';
+              })()"></span>
+      </div>
+      <progress class="progress progress-success w-full"
+                :value="($store.app.state?.stories || []).filter(s => s.status === 'done').length"
+                :max="($store.app.state?.stories || []).length"></progress>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-4 gap-4 mb-6">
+      <div class="bg-slate-800 border border-slate-700 rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-slate-100" x-text="($store.app.state?.stories || []).length"></div>
+        <div class="text-xs text-slate-500 mt-1">Total Stories</div>
+      </div>
+      <div class="bg-slate-800 border border-slate-700 rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-emerald-400" x-text="($store.app.state?.stories || []).filter(s => s.status === 'done').length"></div>
+        <div class="text-xs text-slate-500 mt-1">Done</div>
+      </div>
+      <div class="bg-slate-800 border border-slate-700 rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-amber-400" x-text="($store.app.state?.stories || []).filter(s => s.status === 'in_progress').length"></div>
+        <div class="text-xs text-slate-500 mt-1">In Progress</div>
+      </div>
+      <div class="bg-slate-800 border border-slate-700 rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-slate-100" x-text="($store.app.state?.waves || []).length"></div>
+        <div class="text-xs text-slate-500 mt-1">Waves</div>
+      </div>
+    </div>
+
+    <!-- Two-Column Layout -->
+    <div class="grid grid-cols-2 gap-4 mb-6">
+
+      <!-- Left Column -->
+      <div class="space-y-4">
+
+        <!-- Parties Card -->
+        <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+          <h3 class="text-sm font-semibold text-slate-200 mb-3">Parties</h3>
+          <div class="space-y-3">
+            <template x-for="party in ($store.app.epic?.parties || [])" :key="party.name">
+              <div class="flex items-start gap-3">
+                <div class="w-8 h-8 rounded-md bg-purple-900 flex items-center justify-center flex-shrink-0">
+                  <span class="text-xs text-purple-300" x-text="party.name ? party.name.charAt(0).toUpperCase() : '?'"></span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-medium text-slate-200" x-text="party.name"></div>
+                  <div class="text-xs text-slate-500" x-text="(party.description || '') + (party.auth ? ' · Auth: ' + party.auth : '')"></div>
+                </div>
+                <span class="badge badge-sm bg-slate-700 text-slate-300 border-slate-600"
+                      x-text="($store.app.state?.stories || []).filter(s => s.party === party.name).length + ' stories'"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Repos Card -->
+        <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+          <h3 class="text-sm font-semibold text-slate-200 mb-3">Repos</h3>
+          <div class="space-y-3">
+            <template x-for="repo in ($store.app.repos || [])" :key="repo.name">
+              <div class="flex items-center gap-3">
+                <span class="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      :style="'background:' + ['#60a5fa','#a78bfa','#f472b6','#fbbf24','#34d399'][($store.app.repos || []).indexOf(repo) % 5]"></span>
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-medium text-slate-200" x-text="repo.name"></div>
+                  <div class="text-xs text-slate-500" x-text="(repo.stack || [])[0] || ''"></div>
+                </div>
+                <span class="badge badge-sm bg-slate-700 text-slate-300 border-slate-600"
+                      x-text="($store.app.state?.stories || []).filter(s => s.repo === repo.name).length + ' stories'"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Column -->
+      <div class="space-y-4">
+
+        <!-- Technical Context Card -->
+        <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+          <h3 class="text-sm font-semibold text-slate-200 mb-3">Technical Context</h3>
+          <div class="space-y-2">
+            <template x-for="(value, key) in ($store.app.epic?.technical_context || {})" :key="key">
+              <div class="border-l-2 border-emerald-600 pl-3 py-1">
+                <div class="text-xs font-medium text-emerald-400" x-text="key"></div>
+                <div class="text-xs text-slate-400" x-text="Array.isArray(value) ? value.join(', ') : value"></div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Waves Card -->
+        <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+          <h3 class="text-sm font-semibold text-slate-200 mb-3">Waves</h3>
+          <div class="space-y-3">
+            <template x-for="wave in ($store.app.state?.waves || [])" :key="wave.id">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-sm font-medium text-slate-200" x-text="wave.name"></span>
+                  <span class="text-xs"
+                        :class="wave.status === 'done' ? 'text-emerald-400' : (wave.status === 'in_progress' ? 'text-amber-400' : 'text-slate-500')"
+                        x-text="wave.status === 'done' ? 'Done' : (wave.status === 'in_progress' ? 'In Progress' : 'Pending')"></span>
+                </div>
+                <progress class="progress progress-success w-full h-1.5"
+                          :value="($store.app.state?.stories || []).filter(s => (wave.stories || []).includes(s.id) && s.status === 'done').length"
+                          :max="(wave.stories || []).length || 1"></progress>
+              </div>
+            </template>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Epic Meta Footer -->
+    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+      <div class="flex items-center gap-6 text-xs text-slate-500">
+        <span>Created: <span class="text-slate-400" x-text="$store.app.epic?.created_at || 'N/A'"></span></span>
+        <span>Kryptonite: <span class="text-slate-400" x-text="$store.app.epic?.kryptonite_version || 'N/A'"></span></span>
+        <span>Mocks: <span class="text-slate-400" x-text="($store.app.state?.stories || []).filter(s => s.has_mock).length"></span></span>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
