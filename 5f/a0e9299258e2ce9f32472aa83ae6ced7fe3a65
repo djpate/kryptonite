@@ -1,0 +1,21 @@
+package.json
+  s_5609fb30c03238::t_95ae84aef7f180 3
+skills/kryptonite/references/schema-changelog.json
+  s_5609fb30c03238::t_5b80ceda2ed6e6 5-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "5fa0e9299258e2ce9f32472aa83ae6ced7fe3a65",
+  "prompts": {},
+  "sessions": {
+    "s_5609fb30c03238": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c8c6628f-bd22-4376-ae8e-3490847c27aa",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
