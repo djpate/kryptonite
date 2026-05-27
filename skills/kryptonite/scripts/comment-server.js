@@ -89,20 +89,6 @@ function getProjectDir() {
   return path.dirname(epicDir);
 }
 
-function escapeHtml(s) {
-  if (!s) return "";
-  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
-function formatStatement(stmt) {
-  if (!stmt) return "";
-  if (typeof stmt === "string") return stmt;
-  if (typeof stmt === "object" && stmt.as_a) {
-    return `As a ${stmt.as_a}, I want to ${stmt.i_want} so that ${stmt.so_that}`;
-  }
-  return JSON.stringify(stmt);
-}
-
 const BRAND = {
   primary: "#10b981",
   primaryDark: "#059669",
@@ -149,7 +135,7 @@ const NAV_BAR = `
 
 const COMMENT_CLIENT_SCRIPT = `
 <style>
-  /* Handled by NAV_COMPAT_STYLE in <head> */
+  /* Comment panel styles */
 
   [data-section] {
     position: relative;
@@ -516,15 +502,6 @@ const COMMENT_CLIENT_SCRIPT = `
 </script>
 `;
 
-const NAV_COMPAT_STYLE = `
-<style>
-  .sidebar {
-    top: 48px !important;
-    height: calc(100vh - 48px) !important;
-  }
-</style>
-`;
-
 function injectUI(html) {
   const HEAD_INJECTION = `
 <style>
@@ -563,385 +540,9 @@ function injectUI(html) {
   return NAV_CONTAINER + html + COMMENT_CLIENT_SCRIPT;
 }
 
-// ─── COMPARE VIEW ────────────────────────────────────────────────────────────
-
-function compareHTML() {
-  const state = getState();
-  if (!state) return `<!DOCTYPE html><html><body><p>No state file found.</p></body></html>`;
-
-  const stories = state.stories || [];
-  const visualStories = stories.filter(s => s.has_mock && !s.mock_approved);
-  const basePath = statePath ? statePath.replace(/state\.json$/, "") : "";
-  const mocksDir = basePath + "mocks/";
-  let mockFiles = [];
-  try { mockFiles = fs.readdirSync(mocksDir); } catch {}
-
-  // Build comparison data: [{storyId, statement, options: ["option-a.html", "option-b.html"]}]
-  const compareData = [];
-  for (const story of visualStories) {
-    const optionFiles = mockFiles.filter(f => f.startsWith(story.id + "-option-") && f.endsWith(".html"));
-    if (optionFiles.length > 0) {
-      compareData.push({
-        storyId: story.id,
-        statement: formatStatement(story.statement),
-        options: optionFiles.map(f => ({
-          file: f,
-          label: f.replace(story.id + "-option-", "").replace(".html", "").toUpperCase()
-        }))
-      });
-    }
-  }
-
-  const dataJson = JSON.stringify(compareData).replace(/</g, "\\u003c");
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kryptonite — Compare Mocks</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
-    .top-bar { height: 56px; background: ${BRAND.sidebar}; display: flex; align-items: center; padding: 0 24px; border-bottom: 1px solid #334155; flex-shrink: 0; }
-    .top-bar .logo { display: flex; align-items: center; gap: 8px; margin-right: 24px; }
-    .top-bar .logo .dot { width: 8px; height: 8px; border-radius: 50%; background: ${BRAND.primary}; }
-    .top-bar .logo span { font-weight: 600; font-size: 14px; }
-    .top-bar .story-info { flex: 1; }
-    .top-bar .story-id { font-weight: 600; color: ${BRAND.primary}; font-size: 13px; }
-    .top-bar .story-desc { font-size: 12px; color: #94a3b8; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 500px; }
-    .top-bar .nav-btns { display: flex; gap: 8px; align-items: center; }
-    .top-bar .nav-btns button { padding: 8px 16px; border-radius: 6px; border: 1px solid #334155; background: transparent; color: #e2e8f0; cursor: pointer; font-size: 13px; transition: all 0.15s; }
-    .top-bar .nav-btns button:hover { background: #1e293b; border-color: #475569; }
-    .top-bar .nav-btns button:disabled { opacity: 0.3; cursor: not-allowed; }
-    .top-bar .counter { font-size: 12px; color: #64748b; margin: 0 12px; }
-    .top-bar .submit-btn { padding: 8px 20px; border-radius: 6px; border: none; background: ${BRAND.primary}; color: #fff; cursor: pointer; font-size: 13px; font-weight: 500; margin-left: 16px; transition: background 0.15s; }
-    .top-bar .submit-btn:hover { background: ${BRAND.primaryDark}; }
-    .top-bar .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .compare-area { flex: 1; display: flex; gap: 2px; padding: 2px; overflow: hidden; }
-    .option-frame { flex: 1; display: flex; flex-direction: column; border-radius: 8px; overflow: hidden; border: 3px solid transparent; cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s; position: relative; }
-    .option-frame:hover { border-color: #475569; }
-    .option-frame.selected { border-color: ${BRAND.primary}; box-shadow: 0 0 20px ${BRAND.primary}40; }
-    .option-label { height: 36px; background: #1e293b; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; letter-spacing: 1px; flex-shrink: 0; }
-    .option-frame.selected .option-label { background: ${BRAND.primary}; color: #fff; }
-    .option-frame iframe { flex: 1; width: 100%; border: none; background: #fff; pointer-events: none; }
-    .option-frame .click-overlay { position: absolute; inset: 36px 0 0 0; cursor: pointer; z-index: 1; }
-    .check-mark { position: absolute; top: 44px; right: 8px; width: 28px; height: 28px; border-radius: 50%; background: ${BRAND.primary}; display: none; align-items: center; justify-content: center; color: #fff; font-size: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
-    .option-frame.selected .check-mark { display: flex; }
-    .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; }
-    .empty-state p { color: #64748b; font-size: 15px; }
-    .done-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 9999; flex-direction: column; gap: 16px; }
-    .done-overlay.show { display: flex; }
-    .done-overlay p { font-size: 18px; color: #e2e8f0; }
-    .done-overlay .sub { font-size: 13px; color: #64748b; }
-  </style>
-</head>
-<body>
-  <div class="top-bar">
-    <div class="logo"><div class="dot"></div><span>Compare</span></div>
-    <div class="story-info"><div class="story-id" id="story-id"></div><div class="story-desc" id="story-desc"></div></div>
-    <div class="nav-btns">
-      <button id="prev-btn" onclick="navigate(-1)">&larr; Prev</button>
-      <span class="counter" id="counter"></span>
-      <button id="next-btn" onclick="navigate(1)">Next &rarr;</button>
-      <button class="submit-btn" id="submit-btn" onclick="submitAll()">Submit All Choices</button>
-    </div>
-  </div>
-  <div class="compare-area" id="compare-area"></div>
-  <div class="done-overlay" id="done-overlay"><p>All choices submitted!</p><p class="sub">You can close this tab and return to the terminal.</p></div>
-  <script>
-    var data = ${dataJson};
-    var currentIdx = 0;
-    var selections = {};
-
-    function render() {
-      if (data.length === 0) {
-        document.getElementById('compare-area').innerHTML = '<div class="empty-state"><p>No pending mock options to review.</p><p style="font-size:13px;color:#475569;">All mocks are either approved or haven\\'t been generated yet.</p></div>';
-        document.getElementById('story-id').textContent = '';
-        document.getElementById('story-desc').textContent = '';
-        document.getElementById('counter').textContent = '';
-        return;
-      }
-      var item = data[currentIdx];
-      document.getElementById('story-id').textContent = item.storyId;
-      document.getElementById('story-desc').textContent = item.statement;
-      document.getElementById('counter').textContent = (currentIdx + 1) + ' / ' + data.length;
-      document.getElementById('prev-btn').disabled = currentIdx === 0;
-      document.getElementById('next-btn').disabled = currentIdx === data.length - 1;
-
-      var selectedCount = Object.keys(selections).length;
-      var btn = document.getElementById('submit-btn');
-      btn.textContent = selectedCount === data.length ? 'Submit All Choices' : selectedCount + '/' + data.length + ' selected';
-      btn.disabled = selectedCount < data.length;
-
-      var area = document.getElementById('compare-area');
-      area.innerHTML = '';
-      item.options.forEach(function(opt) {
-        var frame = document.createElement('div');
-        frame.className = 'option-frame' + (selections[item.storyId] === opt.file ? ' selected' : '');
-        frame.onclick = function() { select(item.storyId, opt.file); };
-        frame.innerHTML = '<div class="option-label">' + opt.label + '</div><iframe src="/mocks/' + opt.file + '"></iframe><div class="click-overlay"></div><div class="check-mark">&#10003;</div>';
-        area.appendChild(frame);
-      });
-    }
-
-    function select(storyId, file) {
-      selections[storyId] = file;
-      fetch('/api/selections', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ storyId: storyId, choice: file })
-      });
-      render();
-    }
-
-    function navigate(dir) {
-      currentIdx = Math.max(0, Math.min(data.length - 1, currentIdx + dir));
-      render();
-    }
-
-    function submitAll() {
-      document.getElementById('done-overlay').classList.add('show');
-    }
-
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'ArrowLeft') navigate(-1);
-      if (e.key === 'ArrowRight') navigate(1);
-      if (e.key >= '1' && e.key <= '9') {
-        var item = data[currentIdx];
-        if (item && item.options[parseInt(e.key) - 1]) {
-          select(item.storyId, item.options[parseInt(e.key) - 1].file);
-        }
-      }
-    });
-
-    render();
-  </script>
-</body>
-</html>`;
-}
-
-// ─── MOCKS GALLERY ───────────────────────────────────────────────────────────
-
-function mocksGalleryHTML() {
-  const state = getState();
-  if (!state) return `<!DOCTYPE html><html><head><title>Kryptonite Mocks</title></head><body>${NAV_BAR}<p style="padding:32px;font-family:sans-serif;">No state file found.</p></body></html>`;
-
-  const stories = state.stories || [];
-  const visualStories = stories.filter(s => s.has_mock);
-  const direction = state.design_direction || { locked: false, notes: "Not yet established", approved_mocks: [] };
-
-  // Scan mocks directory for all files (including option variants)
-  const basePath = statePath ? statePath.replace(/state\.json$/, "") : "";
-  const mocksDir = basePath + "mocks/";
-  let mockFiles = [];
-  try { mockFiles = fs.readdirSync(mocksDir); } catch {}
-
-  let mockCards = "";
-  for (const story of visualStories) {
-    const storyId = story.id;
-    const isApproved = story.mock_approved;
-    const stmt = formatStatement(story.statement);
-
-    // Find all files for this story (approved + option variants)
-    const storyFiles = mockFiles.filter(f => f.startsWith(storyId));
-    const htmlFiles = storyFiles.filter(f => f.endsWith('.html'));
-    const pngFiles = storyFiles.filter(f => f.endsWith('.png'));
-    const mainPng = pngFiles.find(f => f === `${storyId}.png`) || pngFiles[0];
-
-    // Option variants (e.g., US-013-option-a.html, US-013-option-b.html)
-    const optionFiles = htmlFiles.filter(f => f.includes('-option-'));
-    const approvedFile = htmlFiles.find(f => f === `${storyId}.html`);
-
-    let optionLinks = "";
-    if (optionFiles.length > 0) {
-      optionLinks = optionFiles.map(f => {
-        const label = f.replace(storyId + '-', '').replace('.html', '').replace('option-', '').toUpperCase();
-        return `<a href="/mocks/${f}" target="_blank" style="display:inline-block;padding:4px 10px;margin:2px;font-size:11px;color:${BRAND.primary};border:1px solid ${BRAND.border};border-radius:4px;text-decoration:none;">Option ${label}</a>`;
-      }).join('');
-    }
-
-    mockCards += `
-      <div style="background:${BRAND.bg};border:1px solid ${isApproved ? BRAND.primary : BRAND.border};border-radius:12px;overflow:hidden;transition:box-shadow 0.2s;">
-        <div style="aspect-ratio:16/10;background:${BRAND.cardBg};display:flex;align-items:center;justify-content:center;border-bottom:1px solid ${BRAND.border};overflow:hidden;">
-          ${mainPng
-            ? `<img src="/mocks/${mainPng}" style="width:100%;height:100%;object-fit:cover;" alt="${escapeHtml(storyId)} mock">`
-            : `<div style="color:${BRAND.textMuted};font-size:13px;">${htmlFiles.length > 0 ? 'Options ready for review' : 'Mock pending'}</div>`
-          }
-        </div>
-        <div style="padding:16px;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-            <span style="font-weight:600;font-size:13px;color:${BRAND.primary};">${storyId}</span>
-            ${isApproved ? `<span style="font-size:11px;color:${BRAND.primary};background:${BRAND.primaryLight};padding:2px 8px;border-radius:99px;font-weight:500;">Approved</span>` : `<span style="font-size:11px;color:${BRAND.textMuted};background:${BRAND.cardBg};padding:2px 8px;border-radius:99px;">Pending</span>`}
-          </div>
-          <p style="font-size:13px;color:${BRAND.text};line-height:1.4;margin:0 0 8px 0;">${escapeHtml(stmt)}</p>
-          ${approvedFile ? `<a href="/mocks/${approvedFile}" target="_blank" style="display:inline-block;margin-bottom:4px;font-size:12px;color:${BRAND.primary};text-decoration:none;font-weight:500;">View approved mock &rarr;</a><br>` : ''}
-          ${optionLinks ? `<div style="margin-top:8px;">${optionLinks}</div>` : ''}
-        </div>
-      </div>`;
-  }
-
-  if (visualStories.length === 0) {
-    mockCards = `<div style="grid-column:1/-1;text-align:center;padding:64px;color:${BRAND.textMuted};">
-      <p style="font-size:15px;">No visual stories identified yet.</p>
-      <p style="font-size:13px;margin-top:8px;">Visual stories will appear here once the Designer agent produces mocks during Phase 4.</p>
-    </div>`;
-  }
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(state.project || "Kryptonite")} — Mocks Gallery</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: ${BRAND.cardBg}; color: ${BRAND.text}; }
-  </style>
-</head>
-<body>
-  ${NAV_BAR}
-  <div style="max-width:1200px;margin:32px auto;padding:0 24px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
-      <div>
-        <h1 style="font-size:24px;font-weight:700;">Mocks Gallery</h1>
-        <p style="font-size:13px;color:${BRAND.textMuted};margin-top:4px;">${visualStories.length} visual stories${direction.locked ? ' — direction locked' : direction.notes !== 'Not yet established' ? ' — direction established' : ''}</p>
-      </div>
-      ${direction.notes !== 'Not yet established' ? `
-      <div style="background:${BRAND.bg};border:1px solid ${BRAND.border};border-radius:8px;padding:12px 16px;max-width:400px;">
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:${BRAND.textMuted};font-weight:600;margin-bottom:4px;">Design Direction ${direction.locked ? '(Locked)' : ''}</div>
-        <div style="font-size:12px;color:${BRAND.text};line-height:1.4;">${escapeHtml(direction.notes)}</div>
-      </div>` : ''}
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px;">
-      ${mockCards}
-    </div>
-  </div>
-</body>
-</html>`;
-}
-
-// ─── DASHBOARD ───────────────────────────────────────────────────────────────
-
-function dashboardHTML() {
-  const state = getState();
-  if (!state) return `<!DOCTYPE html><html><head><title>Kryptonite</title></head><body>${NAV_BAR}<p style="padding:32px;font-family:sans-serif;">No state file found.</p></body></html>`;
-
-  const stories = state.stories || [];
-  const waves = state.waves || [];
-  const total = stories.length;
-  const done = stories.filter((s) => s.status === "done").length;
-  const inProgress = stories.filter((s) => s.status === "in_progress").length;
-  const blocked = stories.filter((s) => s.status === "blocked").length;
-  const pending = stories.filter((s) => s.status === "pending").length;
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-
-  let waveBlocks = "";
-  for (const wave of waves) {
-    const waveStories = stories.filter((s) => wave.stories.includes(s.id));
-    const waveDone = waveStories.filter(s => s.status === "done").length;
-    const wavePct = waveStories.length > 0 ? Math.round((waveDone / waveStories.length) * 100) : 0;
-
-    let storyRows = "";
-    for (const story of waveStories) {
-      const statusColor =
-        story.status === "done" ? BRAND.primary :
-        story.status === "in_progress" ? BRAND.warning :
-        story.status === "blocked" ? BRAND.danger : BRAND.textMuted;
-      const testBadge = story.test_results
-        ? story.test_results.passed
-          ? `<span style="color:${BRAND.primary};font-weight:500;">PASS</span>`
-          : `<span style="color:${BRAND.danger};font-weight:500;">FAIL</span>`
-        : `<span style="color:${BRAND.textMuted};">—</span>`;
-
-      storyRows += `
-        <tr>
-          <td style="padding:10px 14px;border-bottom:1px solid ${BRAND.border};font-weight:500;font-size:13px;">${story.id}</td>
-          <td style="padding:10px 14px;border-bottom:1px solid ${BRAND.border};font-size:13px;max-width:320px;">${escapeHtml(formatStatement(story.statement))}</td>
-          <td style="padding:10px 14px;border-bottom:1px solid ${BRAND.border};text-align:center;">
-            <span style="display:inline-block;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600;background:${statusColor}18;color:${statusColor};text-transform:uppercase;letter-spacing:0.3px;">${story.status.replace("_", " ")}</span>
-          </td>
-          <td style="padding:10px 14px;border-bottom:1px solid ${BRAND.border};font-size:12px;color:${BRAND.textMuted};">${story.priority || "—"}</td>
-          <td style="padding:10px 14px;border-bottom:1px solid ${BRAND.border};font-family:'SF Mono',monospace;font-size:12px;">${story.commit_sha ? story.commit_sha.slice(0, 7) : "—"}</td>
-          <td style="padding:10px 14px;border-bottom:1px solid ${BRAND.border};font-size:12px;">${testBadge}</td>
-          <td style="padding:10px 14px;border-bottom:1px solid ${BRAND.border};font-size:12px;color:${BRAND.textMuted};">${story.implemented_by || "—"}</td>
-        </tr>`;
-    }
-
-    waveBlocks += `
-      <div style="margin-bottom:32px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-          <h3 style="margin:0;font-size:16px;font-weight:600;color:${BRAND.text};">Wave ${wave.id}: ${escapeHtml(wave.name || "")}</h3>
-          <span style="font-size:12px;color:${BRAND.textMuted};">${waveDone}/${waveStories.length} done (${wavePct}%)</span>
-        </div>
-        <div style="background:${BRAND.border};border-radius:4px;height:6px;margin-bottom:16px;overflow:hidden;">
-          <div style="background:${BRAND.primary};height:100%;width:${wavePct}%;border-radius:4px;transition:width 0.3s;"></div>
-        </div>
-        <table style="width:100%;border-collapse:collapse;background:${BRAND.bg};border:1px solid ${BRAND.border};border-radius:8px;overflow:hidden;">
-          <thead>
-            <tr style="background:${BRAND.cardBg};">
-              <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:${BRAND.textMuted};border-bottom:1px solid ${BRAND.border};">ID</th>
-              <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:${BRAND.textMuted};border-bottom:1px solid ${BRAND.border};">Story</th>
-              <th style="text-align:center;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:${BRAND.textMuted};border-bottom:1px solid ${BRAND.border};">Status</th>
-              <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:${BRAND.textMuted};border-bottom:1px solid ${BRAND.border};">Priority</th>
-              <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:${BRAND.textMuted};border-bottom:1px solid ${BRAND.border};">Commit</th>
-              <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:${BRAND.textMuted};border-bottom:1px solid ${BRAND.border};">Tests</th>
-              <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:${BRAND.textMuted};border-bottom:1px solid ${BRAND.border};">Agent</th>
-            </tr>
-          </thead>
-          <tbody>${storyRows}</tbody>
-        </table>
-      </div>`;
-  }
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(state.project || "Kryptonite")} — Dashboard</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: ${BRAND.cardBg}; color: ${BRAND.text}; }
-  </style>
-</head>
-<body>
-  ${NAV_BAR}
-  <div style="max-width:1100px;margin:32px auto;padding:0 24px;">
-    <div style="margin-bottom:32px;">
-      <h1 style="font-size:24px;font-weight:700;margin-bottom:4px;">${escapeHtml(state.project || "Project")}</h1>
-      <span style="font-size:13px;color:${BRAND.textMuted};">Phase: ${state.phase || "unknown"}</span>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px;">
-      <div style="background:${BRAND.bg};border:1px solid ${BRAND.border};border-radius:10px;padding:20px;">
-        <div style="font-size:32px;font-weight:700;">${total}</div>
-        <div style="font-size:12px;color:${BRAND.textMuted};margin-top:4px;">Total Stories</div>
-      </div>
-      <div style="background:${BRAND.bg};border:1px solid ${BRAND.border};border-radius:10px;padding:20px;">
-        <div style="font-size:32px;font-weight:700;color:${BRAND.primary};">${done}</div>
-        <div style="font-size:12px;color:${BRAND.textMuted};margin-top:4px;">Completed</div>
-      </div>
-      <div style="background:${BRAND.bg};border:1px solid ${BRAND.border};border-radius:10px;padding:20px;">
-        <div style="font-size:32px;font-weight:700;color:${BRAND.warning};">${inProgress}</div>
-        <div style="font-size:12px;color:${BRAND.textMuted};margin-top:4px;">In Progress</div>
-      </div>
-      <div style="background:${BRAND.bg};border:1px solid ${BRAND.border};border-radius:10px;padding:20px;">
-        <div style="font-size:32px;font-weight:700;color:${BRAND.danger};">${blocked}</div>
-        <div style="font-size:12px;color:${BRAND.textMuted};margin-top:4px;">Blocked</div>
-      </div>
-    </div>
-    <div style="background:${BRAND.border};border-radius:6px;height:10px;margin-bottom:8px;overflow:hidden;">
-      <div style="background:${BRAND.primary};height:100%;width:${pct}%;border-radius:6px;transition:width 0.3s;"></div>
-    </div>
-    <p style="text-align:center;color:${BRAND.textMuted};font-size:13px;margin-bottom:40px;">${pct}% complete — ${done} of ${total} stories done</p>
-    ${waveBlocks}
-  </div>
-  <script>setTimeout(function(){location.reload()},10000);</script>
-</body>
-</html>`;
-}
 
 // ─── STATIC FILE SERVING ─────────────────────────────────────────────────────
+// (legacy inline HTML generators removed — replaced by static pages in ui/)
 
 const UI_DIR = path.join(__dirname, "..", "ui");
 
@@ -1247,24 +848,22 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Mocks page (static UI version)
+  // Mocks page
   if (url.pathname === "/mocks") {
     const filePath = path.join(UI_DIR, "mocks.html");
     if (!serveStaticFile(filePath, res)) {
-      // Fallback to server-generated mocks gallery
-      res.writeHead(200, { "Content-Type": "text/html" });
-      res.end(mocksGalleryHTML());
+      res.writeHead(404);
+      res.end("mocks.html not found");
     }
     return;
   }
 
-  // Dashboard page (static UI version)
+  // Dashboard page
   if (url.pathname === "/dashboard") {
     const filePath = path.join(UI_DIR, "dashboard.html");
     if (!serveStaticFile(filePath, res)) {
-      // Fallback to server-generated dashboard
-      res.writeHead(200, { "Content-Type": "text/html" });
-      res.end(dashboardHTML());
+      res.writeHead(404);
+      res.end("dashboard.html not found");
     }
     return;
   }
@@ -1312,10 +911,10 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Compare view (fullscreen mock comparison)
+  // Compare view — now a tab in mocks.html
   if (url.pathname === "/compare") {
-    res.writeHead(200, { "Content-Type": "text/html" });
-    res.end(compareHTML());
+    res.writeHead(302, { Location: "/mocks" });
+    res.end();
     return;
   }
 
