@@ -1,0 +1,87 @@
+<nav style="position:fixed;top:0;left:0;right:0;height:56px;background:#1e293b;border-bottom:1px solid #334155;z-index:100;display:flex;align-items:center;padding:0 1rem;" x-data="{ epicDropdown: false }">
+  <!-- Logo -->
+  <div style="display:flex;align-items:center;gap:0.5rem;margin-right:1.5rem;">
+    <span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>
+    <span style="font-weight:700;font-size:1rem;color:#e2e8f0;">Kryptonite</span>
+  </div>
+
+  <!-- Epic Switcher -->
+  <div style="position:relative;margin-right:1.5rem;">
+    <button
+      @click="epicDropdown = !epicDropdown"
+      @click.away="epicDropdown = false"
+      class="btn btn-sm btn-ghost"
+      style="color:#e2e8f0;border:1px solid #334155;border-radius:0.375rem;padding:0.25rem 0.75rem;font-size:0.8rem;"
+    >
+      <span x-text="$store.app.currentEpic ? $store.app.currentEpic.name : 'Loading...'"></span>
+      <svg style="width:12px;height:12px;margin-left:0.25rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+    </button>
+    <div
+      x-show="epicDropdown"
+      x-transition
+      style="position:absolute;top:100%;left:0;margin-top:0.25rem;width:280px;background:#1e293b;border:1px solid #334155;border-radius:0.5rem;padding:0.5rem;box-shadow:0 10px 30px rgba(0,0,0,0.4);z-index:110;"
+    >
+      <template x-if="$store.app.epics">
+        <template x-for="ep in $store.app.epics" :key="ep.slug">
+          <button
+            @click="$store.app.switchEpic(ep.slug); epicDropdown = false"
+            style="display:flex;align-items:center;gap:0.5rem;width:100%;padding:0.5rem;border-radius:0.375rem;text-align:left;background:transparent;border:none;color:#e2e8f0;cursor:pointer;"
+            :style="ep.current ? 'background:rgba(16,185,129,0.1)' : ''"
+            onmouseover="this.style.background='#334155'"
+            onmouseout="this.style.background=this.getAttribute(':style')?.includes('rgba') ? 'rgba(16,185,129,0.1)' : 'transparent'"
+          >
+            <span
+              style="width:8px;height:8px;border-radius:50%;flex-shrink:0;"
+              :style="ep.current ? 'background:#10b981' : (ep.status === 'completed' ? 'background:#64748b' : 'background:#f59e0b')"
+            ></span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:0.8rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" x-text="ep.name"></div>
+              <div style="font-size:0.7rem;color:#64748b;" x-text="'Phase ' + (ep.phase || '?') + ' · ' + (ep.storyCount || 0) + ' stories'"></div>
+            </div>
+          </button>
+        </template>
+      </template>
+    </div>
+  </div>
+
+  <!-- Tab Links -->
+  <div style="display:flex;align-items:center;gap:0.25rem;" id="nav-tabs">
+    <a href="/" class="nav-tab" data-path="/" style="padding:0.375rem 0.75rem;border-radius:0.375rem;font-size:0.8rem;color:#64748b;text-decoration:none;transition:all 0.15s;">Overview</a>
+    <a href="/stories" class="nav-tab" data-path="/stories" style="padding:0.375rem 0.75rem;border-radius:0.375rem;font-size:0.8rem;color:#64748b;text-decoration:none;transition:all 0.15s;">Stories</a>
+    <a href="/spec" class="nav-tab" data-path="/spec" style="padding:0.375rem 0.75rem;border-radius:0.375rem;font-size:0.8rem;color:#64748b;text-decoration:none;transition:all 0.15s;">Spec</a>
+    <a href="/plan" class="nav-tab" data-path="/plan" style="padding:0.375rem 0.75rem;border-radius:0.375rem;font-size:0.8rem;color:#64748b;text-decoration:none;transition:all 0.15s;">Plan</a>
+    <a href="/mocks" class="nav-tab" data-path="/mocks" style="padding:0.375rem 0.75rem;border-radius:0.375rem;font-size:0.8rem;color:#64748b;text-decoration:none;transition:all 0.15s;">Mocks</a>
+    <a href="/dashboard" class="nav-tab" data-path="/dashboard" style="padding:0.375rem 0.75rem;border-radius:0.375rem;font-size:0.8rem;color:#64748b;text-decoration:none;transition:all 0.15s;">Dashboard</a>
+  </div>
+
+  <!-- Spacer -->
+  <div style="flex:1;"></div>
+
+  <!-- Right side: Phase badge + progress -->
+  <div style="display:flex;align-items:center;gap:0.75rem;">
+    <span
+      style="padding:0.2rem 0.6rem;border-radius:9999px;font-size:0.7rem;font-weight:600;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);"
+      x-text="$store.app.epic ? 'Phase ' + $store.app.epic.currentPhase : ''"
+    ></span>
+    <span
+      style="font-size:0.75rem;color:#64748b;"
+      x-text="$store.app.state ? ($store.app.state.stories.filter(s => s.status === 'done').length + '/' + $store.app.state.stories.length + ' done') : ''"
+    ></span>
+  </div>
+</nav>
+
+<!-- Active tab highlighting -->
+<script>
+(function() {
+  const path = window.location.pathname;
+  const tabs = document.querySelectorAll('#nav-tabs .nav-tab');
+  tabs.forEach(tab => {
+    const tabPath = tab.getAttribute('data-path');
+    const isActive = (tabPath === '/' && path === '/') || (tabPath !== '/' && path.startsWith(tabPath));
+    if (isActive) {
+      tab.style.color = '#10b981';
+      tab.style.background = 'rgba(16, 185, 129, 0.1)';
+    }
+  });
+})();
+</script>
