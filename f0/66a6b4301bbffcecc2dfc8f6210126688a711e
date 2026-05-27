@@ -1,0 +1,82 @@
+skills/kryptonite/scripts/phase-gates/09.json
+  s_5609fb30c03238::t_44dc68f0226f57 1-31
+skills/kryptonite/scripts/phase-gates/05.json
+  s_5609fb30c03238::t_b3a8348ed0ecae 1-17
+skills/kryptonite/scripts/phase-gates/06.json
+  s_5609fb30c03238::t_c4251af9735fff 1-45
+skills/kryptonite/scripts/phase-gates/08.json
+  s_5609fb30c03238::t_2d7463c8eed748 1-90
+skills/kryptonite/agents/interviewer.md
+  s_5609fb30c03238::t_10a8481c01fac3 58-69
+skills/kryptonite/references/schema-changelog.json
+  s_5609fb30c03238::t_a31cab47f7280e 55
+  s_5609fb30c03238::t_a84cc28a43af3d 1-4,6-54,56-61
+  s_5609fb30c03238::t_0c138bcf07f314 5
+skills/kryptonite/scripts/phase-gates/01.json
+  s_5609fb30c03238::t_a77986c1296b51 4,10
+  s_5609fb30c03238::t_7386e1555437c8 16-17
+  s_5609fb30c03238::t_84cb8ba088b505 1-3,5-9,11-15,18-21
+skills/kryptonite/scripts/phase-gates/11.json
+  s_5609fb30c03238::t_73051267d6a664 1-66
+skills/kryptonite/agents/orchestrator.md
+  s_5609fb30c03238::t_5857a70e2872ee 143-156
+skills/kryptonite/SKILL.md
+  s_5609fb30c03238::t_1606e4890326f0 141
+  s_5609fb30c03238::t_bb53f212246149 849-850
+  s_5609fb30c03238::t_dbbe048364b0ec 552
+  s_5609fb30c03238::t_c1a4724ae940ec 852-893
+  s_5609fb30c03238::t_d963a394f22160 159-161
+  s_5609fb30c03238::t_8598c1c97905af 894-900
+  s_5609fb30c03238::t_e0f936079aa764 439,441-473
+package.json
+  s_5609fb30c03238::t_93861e6b0c36f4 3
+  s_5609fb30c03238::t_dd2be858ff3029 21-25
+skills/kryptonite/scripts/phase-gates/02.json
+  s_5609fb30c03238::t_5fd13671b2b69a 1-20
+skills/kryptonite/scripts/phase-gates/07.json
+  s_5609fb30c03238::t_d5253dc44c9b79 1-41
+skills/kryptonite/scripts/phase-gates/12.json
+  s_5609fb30c03238::t_99e04e745fae2b 1-61
+skills/kryptonite/scripts/phase-gates/03.json
+  s_5609fb30c03238::t_92efa8046c859e 1-20
+skills/kryptonite/scripts/phase-gates/08-legacy.json
+  s_5609fb30c03238::t_81a195cf89abf0 1-89
+skills/kryptonite/scripts/phase-gates/04.json
+  s_5609fb30c03238::t_4aff6890469ba2 1-33
+skills/kryptonite/scripts/validate-gate.js
+  s_5609fb30c03238::t_4425ce78e52f1c 56
+  s_5609fb30c03238::t_d666e777bf4c71 1
+  s_5609fb30c03238::t_2c9671ec6328d5 125
+  s_5609fb30c03238::t_a0f3b71c0c1a12 195-201
+  s_5609fb30c03238::t_1e0104218c49bc 2-36,40,47-55,57-63,73-74,78,80-124,126-194,202-211
+  s_5609fb30c03238::t_4fa6d0dd00d779 67-69,71
+  s_5609fb30c03238::t_1e40fbf90cb06b 41-46
+  s_5609fb30c03238::t_47f209eaf7b4fd 75-77,79
+  s_5609fb30c03238::t_1465015894ce85 37-39
+  s_5609fb30c03238::t_5fbfe4135c6d7e 64-66,70,72
+skills/kryptonite/agents/designer.md
+  s_5609fb30c03238::t_a397e0b91c1806 128-132,134-143
+  s_5609fb30c03238::t_7d4873028c0288 71-72
+  s_5609fb30c03238::t_c59538c73886f4 20,22,24,26-31,41-45,47,49-54,56-60,62-67
+  s_5609fb30c03238::t_e9013406eea687 32-33,37-40
+  s_5609fb30c03238::t_d10806968dcf5b 89,95-98
+  s_5609fb30c03238::t_bc59e5eefa5d09 148-170
+skills/kryptonite/scripts/phase-gates/10.json
+  s_5609fb30c03238::t_1a123b51fad7af 1-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f066a6b4301bbffcecc2dfc8f6210126688a711e",
+  "prompts": {},
+  "sessions": {
+    "s_5609fb30c03238": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c8c6628f-bd22-4376-ae8e-3490847c27aa",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
