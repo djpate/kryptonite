@@ -94,10 +94,16 @@ function semanticChecks() {
   if (phase >= 5) checkSpikeFiles();
   if (phase >= 8) checkCrossReferences();
   if (phase >= 9) checkNoCycles();
-  if (phase >= 10) checkFileExists("spec.html");
-  if (phase >= 10) checkFileExists("spec-versions.json");
+  if (phase >= 10) {
+    if (!fs.existsSync(path.join(dataPath, "spec.json")) && !fs.existsSync(path.join(dataPath, "spec.html"))) {
+      errors.push(`SEMANTIC filesystem: neither "spec.json" nor "spec.html" found — one is required`);
+    }
+    checkFileExists("spec-versions.json");
+  }
   if (phase >= 11) {
-    checkFileExists("plan.html");
+    if (!fs.existsSync(path.join(dataPath, "plan.json")) && !fs.existsSync(path.join(dataPath, "plan.html"))) {
+      errors.push(`SEMANTIC filesystem: neither "plan.json" nor "plan.html" found — one is required`);
+    }
     checkWaveOrder();
   }
   if (phase >= 12) checkStoryStatusInActiveWaves();
