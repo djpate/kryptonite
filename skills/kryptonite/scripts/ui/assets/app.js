@@ -63,11 +63,11 @@ document.addEventListener('alpine:init', () => {
       this.drawerStory = null;
     },
 
-    switchEpic(slug) {
+    switchEpic(slug, project_id) {
       fetch('/api/epics/switch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug }),
+        body: JSON.stringify({ slug, project_id }),
       }).then(() => {
         window.location.reload();
       });

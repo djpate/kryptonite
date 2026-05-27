@@ -89,6 +89,12 @@ function getProjectDir() {
   return path.dirname(epicDir);
 }
 
+function getDataDir() {
+  const projectDir = getProjectDir();
+  if (!projectDir) return null;
+  return path.dirname(projectDir);
+}
+
 const BRAND = {
   primary: "#10b981",
   primaryDark: "#059669",
@@ -692,48 +698,54 @@ const server = http.createServer((req, res) => {
 
   // ─── API: epics (list all) ──────────────────────────────────────────────────
   if (url.pathname === "/api/epics" && req.method === "GET") {
-    const projectDir = getProjectDir();
-    if (!projectDir) {
+    const dataDir = getDataDir();
+    if (!dataDir) {
       res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
       res.end(JSON.stringify([]));
       return;
     }
     const currentEpicDir = getEpicDir();
+    const epics = [];
     try {
-      const entries = fs.readdirSync(projectDir, { withFileTypes: true });
-      const epics = [];
-      for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
-        const epicJsonPath = path.join(projectDir, entry.name, "epic.json");
+      const projectDirs = fs.readdirSync(dataDir, { withFileTypes: true })
+        .filter(e => e.isDirectory());
+      for (const projEntry of projectDirs) {
+        const projPath = path.join(dataDir, projEntry.name);
+        let projName = projEntry.name;
         try {
-          const epicData = JSON.parse(fs.readFileSync(epicJsonPath, "utf-8"));
-          let stateData = null;
-          const stateJsonPath = path.join(projectDir, entry.name, "state.json");
+          const projJson = JSON.parse(fs.readFileSync(path.join(projPath, "project.json"), "utf-8"));
+          projName = projJson.name || projEntry.name;
+        } catch {}
+        const epicDirs = fs.readdirSync(projPath, { withFileTypes: true })
+          .filter(e => e.isDirectory());
+        for (const epicEntry of epicDirs) {
+          const epicJsonPath = path.join(projPath, epicEntry.name, "epic.json");
           try {
-            stateData = JSON.parse(fs.readFileSync(stateJsonPath, "utf-8"));
+            const epicData = JSON.parse(fs.readFileSync(epicJsonPath, "utf-8"));
+            let stateData = null;
+            try {
+              stateData = JSON.parse(fs.readFileSync(path.join(projPath, epicEntry.name, "state.json"), "utf-8"));
+            } catch {}
+            const stories = stateData?.stories || [];
+            const doneCount = stories.filter(s => s.status === "done").length;
+            const progress = stories.length > 0 ? Math.round((doneCount / stories.length) * 100) : 0;
+            epics.push({
+              slug: epicEntry.name,
+              project: projName,
+              project_id: projEntry.name,
+              name: epicData.name || epicEntry.name,
+              status: epicData.status || "unknown",
+              phase: epicData.current_phase || null,
+              story_count: stories.length,
+              progress,
+              current: path.join(projPath, epicEntry.name) === currentEpicDir,
+            });
           } catch {}
-          const stories = stateData?.stories || [];
-          const doneCount = stories.filter(s => s.status === "done").length;
-          const progress = stories.length > 0 ? Math.round((doneCount / stories.length) * 100) : 0;
-          epics.push({
-            slug: entry.name,
-            name: epicData.name || entry.name,
-            status: epicData.status || stateData?.phase || "unknown",
-            phase: stateData?.phase || epicData.phase || null,
-            story_count: stories.length,
-            progress,
-            current: path.join(projectDir, entry.name) === currentEpicDir,
-          });
-        } catch {
-          // Skip directories without valid epic.json
         }
       }
-      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
-      res.end(JSON.stringify(epics));
-    } catch {
-      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
-      res.end(JSON.stringify([]));
-    }
+    } catch {}
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify(epics));
     return;
   }
 
@@ -743,14 +755,16 @@ const server = http.createServer((req, res) => {
     req.on("data", (chunk) => (body += chunk));
     req.on("end", () => {
       try {
-        const { slug } = JSON.parse(body);
-        const projectDir = getProjectDir();
-        if (!projectDir || !slug) {
+        const { slug, project_id } = JSON.parse(body);
+        const dataDir = getDataDir();
+        if (!dataDir || !slug) {
           res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
-          res.end(JSON.stringify({ error: "Missing slug or no project directory" }));
+          res.end(JSON.stringify({ error: "Missing slug or no data directory" }));
           return;
         }
-        const newStatePath = path.join(projectDir, slug, "state.json");
+        // If project_id provided, switch across projects; otherwise check current project
+        const targetProjectDir = project_id ? path.join(dataDir, project_id) : getProjectDir();
+        const newStatePath = path.join(targetProjectDir, slug, "state.json");
         if (!fs.existsSync(newStatePath)) {
           res.writeHead(404, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
           res.end(JSON.stringify({ error: "Epic not found: " + slug }));
@@ -758,8 +772,8 @@ const server = http.createServer((req, res) => {
         }
         // Switch paths
         statePath = newStatePath;
-        specPath = path.join(projectDir, slug, "spec.html");
-        planPath = path.join(projectDir, slug, "plan.html");
+        specPath = path.join(targetProjectDir, slug, "spec.html");
+        planPath = path.join(targetProjectDir, slug, "plan.html");
         // Reload comments for new epic
         comments = loadComments();
         res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
