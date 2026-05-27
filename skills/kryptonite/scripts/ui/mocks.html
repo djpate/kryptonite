@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kryptonite — Mocks</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.min.css" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+  <script src="/ui/assets/app.js"></script>
+  <link rel="stylesheet" href="/ui/assets/style.css">
+</head>
+<body x-data="mocksPage()" x-init="init()">
+  <div id="nav-container"></div>
+
+  <div class="max-w-full mx-auto px-4 pt-4" style="margin-top: 56px;">
+
+    <!-- Tab Toggle -->
+    <div class="flex items-center mb-6">
+      <div class="bg-slate-800 rounded-lg p-1 flex">
+        <button class="px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+                :class="tab === 'gallery' ? 'bg-emerald-500 text-white' : 'text-slate-400'"
+                @click="tab = 'gallery'">Gallery</button>
+        <button class="px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+                :class="tab === 'compare' ? 'bg-emerald-500 text-white' : 'text-slate-400'"
+                @click="tab = 'compare'">
+          <span>Compare (<span x-text="pendingMocks.length"></span> pending)</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Gallery Tab -->
+    <div x-show="tab === 'gallery'">
+
+      <!-- Foundational Mocks -->
+      <div x-show="foundationalMocks.length > 0" class="mb-8">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="text-sm font-semibold text-slate-200">Foundational Mocks</span>
+          <span class="badge badge-sm bg-emerald-600 text-white border-emerald-600">Direction Locked</span>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <template x-for="story in foundationalMocks" :key="story.id">
+            <a :href="'/mocks/' + story.id + '.html'" target="_blank" class="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden hover:border-emerald-500 transition-colors cursor-pointer block">
+              <div class="bg-slate-700 h-24 flex items-center justify-center text-3xl">&#128444;</div>
+              <div class="p-3 flex items-center gap-2">
+                <span class="text-[10px] text-slate-500 font-mono" x-text="story.id"></span>
+                <span class="badge badge-xs bg-emerald-600 text-white border-emerald-600" x-show="story.mock_approved">approved</span>
+                <span class="text-xs text-slate-300 truncate flex-1" x-text="story.statement?.i_want || story.id"></span>
+              </div>
+            </a>
+          </template>
+        </div>
+      </div>
+
+      <!-- Detail Mocks -->
+      <div x-show="detailMocks.length > 0">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="text-sm font-semibold text-slate-200">Detail Mocks</span>
+          <span class="badge badge-sm bg-slate-700 text-slate-300 border-slate-600" x-text="detailMocks.length"></span>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <template x-for="story in detailMocks" :key="story.id">
+            <a :href="'/mocks/' + story.id + '.html'" target="_blank"
+               class="bg-slate-800 border rounded-lg overflow-hidden hover:border-emerald-500 transition-colors cursor-pointer block"
+               :class="story.mock_approved ? 'border-slate-700' : 'border-amber-500'">
+              <div class="bg-slate-700 h-24 flex items-center justify-center text-3xl">
+                <span x-show="story.mock_approved">&#128444;</span>
+                <span x-show="!story.mock_approved" class="text-xs text-amber-400">options ready</span>
+              </div>
+              <div class="p-3 flex items-center gap-2">
+                <span class="text-[10px] text-slate-500 font-mono" x-text="story.id"></span>
+                <span class="badge badge-xs bg-emerald-600 text-white border-emerald-600" x-show="story.mock_approved">approved</span>
+                <span class="badge badge-xs bg-amber-500 text-white border-amber-500" x-show="!story.mock_approved">pending</span>
+                <span class="text-xs text-slate-300 truncate flex-1" x-text="story.statement?.i_want || story.id"></span>
+              </div>
+            </a>
+          </template>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Compare Tab -->
+    <div x-show="tab === 'compare'">
+
+      <!-- Empty State -->
+      <div x-show="pendingMocks.length === 0" class="text-center py-20">
+        <p class="text-slate-400 text-sm">No pending mocks to compare</p>
+      </div>
+
+      <!-- Compare UI -->
+      <div x-show="pendingMocks.length > 0">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-6">
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-500 font-mono" x-text="pendingMocks[compareIdx]?.id"></span>
+            <span class="text-sm text-slate-200" x-text="pendingMocks[compareIdx]?.statement?.i_want || pendingMocks[compareIdx]?.id"></span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-400" x-text="(compareIdx + 1) + ' of ' + pendingMocks.length"></span>
+            <button class="btn btn-xs btn-ghost text-slate-400" @click="compareIdx = Math.max(0, compareIdx - 1)" :disabled="compareIdx === 0">Prev</button>
+            <button class="btn btn-xs btn-ghost text-slate-400" @click="compareIdx = Math.min(pendingMocks.length - 1, compareIdx + 1)" :disabled="compareIdx >= pendingMocks.length - 1">Next</button>
+          </div>
+        </div>
+
+        <!-- 3-column option frames -->
+        <div class="grid grid-cols-3 gap-4 mb-6">
+          <template x-for="(opt, idx) in ['a', 'b', 'c']" :key="opt">
+            <div class="bg-slate-800 border-2 rounded-lg overflow-hidden cursor-pointer transition-all"
+                 :class="selections[pendingMocks[compareIdx]?.id] === opt ? 'border-emerald-500 shadow-lg shadow-emerald-500/20' : 'border-slate-700 hover:border-slate-500'"
+                 @click="selectOption(pendingMocks[compareIdx]?.id, opt)">
+              <!-- Option Label -->
+              <div class="flex items-center justify-between px-3 py-2 bg-slate-900">
+                <span class="text-xs text-slate-300 font-medium" x-text="'Option ' + opt.toUpperCase()"></span>
+                <span x-show="selections[pendingMocks[compareIdx]?.id] === opt" class="text-emerald-400 text-sm">&#10003;</span>
+              </div>
+              <!-- Iframe Container -->
+              <div class="overflow-hidden" style="height: 96px;">
+                <iframe :src="'/mocks/' + pendingMocks[compareIdx]?.id + '-option-' + opt + '.html'"
+                        style="transform:scale(0.5);transform-origin:top left;width:200%;height:96px;pointer-events:none;"
+                        class="border-0"></iframe>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <div class="text-center text-[10px] text-slate-500 mb-4">Press 1/2/3 to select, arrow keys to navigate</div>
+
+        <!-- Confirm Button -->
+        <div class="text-center">
+          <button class="btn btn-sm btn-success"
+                  :disabled="Object.keys(selections).length < pendingMocks.length"
+                  @click="submitSelections()">Confirm Selections</button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    function mocksPage() {
+      return {
+        tab: 'gallery',
+        compareIdx: 0,
+        selections: {},
+        async init() {
+          await this.$store.app.load();
+          const res = await fetch('/api/selections');
+          this.selections = await res.json();
+          // Keyboard shortcuts
+          document.addEventListener('keydown', (e) => {
+            if (this.tab !== 'compare') return;
+            if (e.key === 'ArrowRight') this.compareIdx = Math.min(this.pendingMocks.length - 1, this.compareIdx + 1);
+            if (e.key === 'ArrowLeft') this.compareIdx = Math.max(0, this.compareIdx - 1);
+            if (['1','2','3'].includes(e.key)) {
+              const opts = ['a','b','c'];
+              this.selectOption(this.pendingMocks[this.compareIdx]?.id, opts[parseInt(e.key)-1]);
+            }
+          });
+        },
+        get foundationalMocks() {
+          return (this.$store.app.state?.stories || []).filter(s => s.has_mock && s.mock_phase === 'foundational');
+        },
+        get detailMocks() {
+          return (this.$store.app.state?.stories || []).filter(s => s.has_mock && s.mock_phase === 'detail');
+        },
+        get pendingMocks() {
+          return (this.$store.app.state?.stories || []).filter(s => s.has_mock && !s.mock_approved);
+        },
+        async selectOption(storyId, option) {
+          this.selections[storyId] = option;
+          await fetch('/api/selections', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ storyId, choice: option })
+          });
+        },
+        async submitSelections() {
+          // Selections already persisted via selectOption calls
+          alert('Selections confirmed! The orchestrator will read these on next check.');
+        }
+      };
+    }
+  </script>
+</body>
+</html>
