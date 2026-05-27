@@ -100,6 +100,7 @@ function semanticChecks() {
     checkFileExists("plan.html");
     checkWaveOrder();
   }
+  if (phase >= 12) checkStoryStatusInActiveWaves();
 }
 
 function checkSpikeFiles() {
@@ -177,6 +178,22 @@ function checkWaveOrder() {
       if (!dep || dep.wave == null) continue;
       if (dep.wave >= story.wave) {
         errors.push(`SEMANTIC stories[${story.id}].wave: dependency "${depId}" is in wave ${dep.wave} but ${story.id} is in wave ${story.wave} (deps must be in earlier waves)`);
+      }
+    }
+  }
+}
+
+function checkStoryStatusInActiveWaves() {
+  if (!state?.stories || !state?.waves) return;
+  const activeWaves = state.waves.filter((w) => w.status === "in_progress");
+  for (const wave of activeWaves) {
+    for (const storyId of wave.stories || []) {
+      const story = state.stories.find((s) => s.id === storyId);
+      if (!story) continue;
+      if (!story.status) {
+        errors.push(`SEMANTIC stories[${storyId}].status: missing status field but wave "${wave.id}" is in_progress — must be set to a valid state machine value`);
+      } else if (story.status === "pending") {
+        errors.push(`SEMANTIC stories[${storyId}].status: is "pending" but wave "${wave.id}" is in_progress — should be "in_progress" or later once wave execution begins`);
       }
     }
   }

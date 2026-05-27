@@ -505,13 +505,62 @@ const COMMENT_CLIENT_SCRIPT = `
 function injectUI(html) {
   const HEAD_INJECTION = `
 <style>
+  :root {
+    --border: #334155 !important;
+    --accent: #10b981 !important;
+    --accent-fade: #10b98130 !important;
+    --sidebar-bg: #0f172a !important;
+    --sidebar-text: #94a3b8 !important;
+    --sidebar-text-active: #e2e8f0 !important;
+  }
   body { background: #0f172a !important; color: #e2e8f0 !important; padding-top: 56px; }
   h1,h2,h3,h4,h5,h6 { color: #f1f5f9 !important; }
+  p, li, dd, dt, span, strong { color: #cbd5e1 !important; }
+  .muted, .muted * { color: #94a3b8 !important; }
   a { color: #60a5fa !important; }
-  code, pre { background: #1e293b !important; color: #e2e8f0 !important; }
+  code, pre { background: #1e293b !important; color: #e2e8f0 !important; border-color: #334155 !important; }
   table, th, td { border-color: #334155 !important; color: #cbd5e1 !important; }
   th { background: #1e293b !important; }
   section, article, div { border-color: #334155 !important; }
+  .party-card, .repo-card { background: #1e293b !important; border-color: #334155 !important; }
+  .party-card h3, .repo-card h3 { color: #10b981 !important; }
+  .sidebar { background: #0f172a !important; border-color: #334155 !important; top: 56px !important; height: calc(100vh - 56px) !important; }
+  .sidebar nav a { color: #94a3b8 !important; }
+  .sidebar nav a:hover { background: #334155 !important; color: #e2e8f0 !important; }
+  .badge { border: none !important; }
+  .badge.priority-critical { background: #450a0a !important; color: #f87171 !important; }
+  .badge.priority-high { background: #451a03 !important; color: #fbbf24 !important; }
+  .badge.priority-medium { background: #1e3a5f !important; color: #60a5fa !important; }
+  .badge.priority-low { background: #1e293b !important; color: #94a3b8 !important; }
+  .badge.type-spike { background: #2e1065 !important; color: #a78bfa !important; }
+  .badge.type-feature { background: #052e16 !important; color: #4ade80 !important; }
+  .badge.repo, .badge.repo-kmsat, .badge.repo-manatee, .badge[class*="repo-"] { background: #1e3a5f !important; color: #60a5fa !important; }
+  .badge.party { background: #2e1065 !important; color: #a78bfa !important; }
+  .badge.mock, .badge.mock-pending { background: #451a03 !important; color: #fbbf24 !important; }
+  .badge.complexity-trivial, .badge.complexity-simple { background: #052e16 !important; color: #4ade80 !important; }
+  .badge.complexity-moderate { background: #451a03 !important; color: #fbbf24 !important; }
+  .badge.complexity-complex, .badge.complexity-very_complex { background: #450a0a !important; color: #f87171 !important; }
+  hr { border-color: #334155 !important; }
+  .content { background: #0f172a !important; }
+  /* Plan-specific overrides */
+  .intro { background: linear-gradient(135deg, #052e16, #0f172a) !important; border-color: #10b981 !important; }
+  .intro .stat-pill { background: #1e293b !important; border-color: #334155 !important; }
+  .intro .stat-pill strong { color: #10b981 !important; }
+  .intro .stat-pill span, .intro p { color: #cbd5e1 !important; }
+  .pg { background: #1e293b !important; border-color: #334155 !important; }
+  .pg h4 { color: #10b981 !important; }
+  .story-mini { background: #0f172a !important; border-color: #334155 !important; }
+  .story-mini * { color: #cbd5e1 !important; }
+  .sid { color: #10b981 !important; }
+  .wave-checkpoint { background: #10b98115 !important; border-color: #10b981 !important; }
+  .wave-summary { color: #cbd5e1 !important; }
+  .pg-section { color: #64748b !important; }
+  .spec-link { color: #64748b !important; }
+  .spec-link:hover { color: #10b981 !important; }
+  .sidebar nav a .count { background: transparent !important; color: #64748b !important; font-weight: 400 !important; }
+  .badge.wave-stat { background: #1e293b !important; border-color: #334155 !important; color: #cbd5e1 !important; }
+  .sidebar .stat { background: #1e293b !important; }
+  .sidebar .stat strong { color: #10b981 !important; }
 </style>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
 <script src="/ui/assets/app.js"></script>

@@ -243,8 +243,18 @@
         async init() {
           await this.$store.app.load();
         },
+        effectiveStatus(story) {
+          if (story.status && story.status !== 'pending') return story.status;
+          // If story has no status or is pending, check if its wave is in_progress
+          const waves = this.$store.app.state?.waves || [];
+          const wave = waves.find(w => (w.stories || []).includes(story.id));
+          if (wave && wave.status === 'in_progress' && (!story.status || story.status === 'pending')) {
+            return 'in_progress';
+          }
+          return 'pending';
+        },
         filteredStories(statuses) {
-          let stories = (this.$store.app.state?.stories || []).filter(s => statuses.includes(s.status || 'pending'));
+          let stories = (this.$store.app.state?.stories || []).filter(s => statuses.includes(this.effectiveStatus(s)));
           if (this.filters.repo) stories = stories.filter(s => s.repo === this.filters.repo);
           if (this.filters.party) stories = stories.filter(s => s.party === this.filters.party);
           if (this.filters.priority) stories = stories.filter(s => s.priority === this.filters.priority);
