@@ -526,17 +526,41 @@ const NAV_COMPAT_STYLE = `
 `;
 
 function injectUI(html) {
+  const HEAD_INJECTION = `
+<style>
+  body { background: #0f172a !important; color: #e2e8f0 !important; padding-top: 56px; }
+  h1,h2,h3,h4,h5,h6 { color: #f1f5f9 !important; }
+  a { color: #60a5fa !important; }
+  code, pre { background: #1e293b !important; color: #e2e8f0 !important; }
+  table, th, td { border-color: #334155 !important; color: #cbd5e1 !important; }
+  th { background: #1e293b !important; }
+  section, article, div { border-color: #334155 !important; }
+</style>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+<script src="/ui/assets/app.js"></script>
+<link rel="stylesheet" href="/ui/assets/style.css">
+`;
+
+  const NAV_CONTAINER = `<div id="nav-container" x-data x-init="$store.app.load()"></div>`;
+
+  // Inject dark theme CSS + Alpine.js + app.js + style.css before </head>
   if (html.includes("</head>")) {
-    html = html.replace("</head>", NAV_COMPAT_STYLE + "</head>");
+    html = html.replace("</head>", HEAD_INJECTION + "</head>");
   }
-  if (html.includes("</body>")) {
-    let result = html.replace(/<body[^>]*>/, function(match) {
-      return match + NAV_BAR;
+
+  // Inject nav container after <body...> tag, plus comment client before </body>
+  if (/<body[^>]*>/.test(html)) {
+    html = html.replace(/<body[^>]*>/, function(match) {
+      return match + NAV_CONTAINER;
     });
-    result = result.replace("</body>", COMMENT_CLIENT_SCRIPT + "</body>");
-    return result;
+    if (html.includes("</body>")) {
+      html = html.replace("</body>", COMMENT_CLIENT_SCRIPT + "</body>");
+    }
+    return html;
   }
-  return NAV_BAR + html + COMMENT_CLIENT_SCRIPT;
+
+  // No body tag found — prepend nav container and append comment client
+  return NAV_CONTAINER + html + COMMENT_CLIENT_SCRIPT;
 }
 
 // ─── COMPARE VIEW ────────────────────────────────────────────────────────────
