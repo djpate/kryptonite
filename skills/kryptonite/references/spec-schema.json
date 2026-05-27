@@ -1,0 +1,731 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KryptoniteSpec",
+  "description": "Schema for a fully structured kryptonite spec document. Validates all sections produced by the kryptonite planning workflow.",
+  "type": "object",
+  "required": [
+    "version",
+    "generated_at",
+    "epic_slug",
+    "overview",
+    "parties",
+    "repos",
+    "architecture",
+    "data_model",
+    "api_boundaries",
+    "nfrs",
+    "technical_constraints",
+    "design_direction",
+    "stories"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[a-zA-Z0-9.+-]+)?$",
+      "description": "Semver version of the spec document, e.g. '1.0.0'."
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 datetime when this spec was generated."
+    },
+    "epic_slug": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "minLength": 1,
+      "description": "Kebab-case identifier for the epic, e.g. 'calendar-sync'."
+    },
+    "overview": {
+      "type": "object",
+      "description": "High-level description of the epic.",
+      "required": ["name", "description", "goals", "non_goals", "target_users"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable name of the epic."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 10,
+          "description": "What this epic delivers and why it matters."
+        },
+        "goals": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 5,
+          "items": {
+            "type": "string",
+            "minLength": 10
+          },
+          "description": "2–5 concrete outcomes this epic must achieve."
+        },
+        "non_goals": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 10
+          },
+          "description": "Things explicitly out of scope for this epic."
+        },
+        "target_users": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Personas or roles this epic primarily serves."
+        }
+      }
+    },
+    "parties": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Actors / roles that interact with the system.",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "description", "auth", "boundaries"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "description": "Unique kebab-case identifier for this party."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Display name of the party."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 10,
+            "description": "Who this party is and what they do."
+          },
+          "auth": {
+            "type": "string",
+            "minLength": 1,
+            "description": "How this party authenticates (e.g. 'oauth2', 'api_key', 'none')."
+          },
+          "boundaries": {
+            "type": "string",
+            "minLength": 10,
+            "description": "What this party is and is not permitted to do."
+          }
+        }
+      }
+    },
+    "repos": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Repositories that are part of this epic.",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "stack"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "description": "Unique kebab-case identifier for this repo."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable name of the repository."
+          },
+          "stack": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Primary technology stack (e.g. 'Node.js/Express', 'React/TypeScript')."
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Optional relative or absolute path to the repo on disk."
+          }
+        }
+      }
+    },
+    "architecture": {
+      "type": "object",
+      "description": "Structural decomposition of the system.",
+      "required": ["components", "interactions", "decisions"],
+      "additionalProperties": false,
+      "properties": {
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Named architectural units.",
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "type", "responsibility", "repo"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "description": "Unique kebab-case identifier for this component."
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Display name of the component."
+              },
+              "type": {
+                "type": "string",
+                "enum": ["service", "library", "store", "external", "action"],
+                "description": "Architectural classification of the component."
+              },
+              "responsibility": {
+                "type": "string",
+                "minLength": 10,
+                "description": "What this component owns and does."
+              },
+              "repo": {
+                "type": "string",
+                "minLength": 1,
+                "description": "ID or name of the repo this component lives in."
+              },
+              "key_files": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "Optional list of notable file paths within this component."
+              }
+            }
+          }
+        },
+        "interactions": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Communication paths between components.",
+          "items": {
+            "type": "object",
+            "required": ["from", "to", "protocol", "description"],
+            "additionalProperties": false,
+            "properties": {
+              "from": {
+                "type": "string",
+                "minLength": 1,
+                "description": "ID of the source component."
+              },
+              "to": {
+                "type": "string",
+                "minLength": 1,
+                "description": "ID of the target component."
+              },
+              "protocol": {
+                "type": "string",
+                "enum": ["function_call", "event", "http", "websocket", "ipc", "caldav"],
+                "description": "Communication mechanism."
+              },
+              "description": {
+                "type": "string",
+                "minLength": 10,
+                "description": "What data or intent flows through this interaction."
+              },
+              "async": {
+                "type": "boolean",
+                "description": "Whether this interaction is asynchronous."
+              }
+            }
+          }
+        },
+        "decisions": {
+          "type": "array",
+          "description": "Architecture Decision Records.",
+          "items": {
+            "type": "object",
+            "required": ["id", "title", "status", "context", "choice", "consequences"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^ADR-\\d{3}$",
+                "description": "ADR identifier, e.g. 'ADR-001'."
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Short title of the decision."
+              },
+              "status": {
+                "type": "string",
+                "enum": ["accepted", "superseded", "deprecated"],
+                "description": "Current status of this ADR."
+              },
+              "context": {
+                "type": "string",
+                "minLength": 10,
+                "description": "The situation that forced this decision."
+              },
+              "choice": {
+                "type": "string",
+                "minLength": 10,
+                "description": "The option that was selected."
+              },
+              "alternatives": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["option", "rejected_because"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "option": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "The alternative that was considered."
+                    },
+                    "rejected_because": {
+                      "type": "string",
+                      "minLength": 10,
+                      "description": "Why this alternative was not chosen."
+                    }
+                  }
+                },
+                "description": "Other options that were evaluated."
+              },
+              "consequences": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 10
+                },
+                "description": "Outcomes and trade-offs of making this decision."
+              }
+            }
+          }
+        }
+      }
+    },
+    "data_model": {
+      "type": "object",
+      "description": "Domain entities and their relationships.",
+      "required": ["entities"],
+      "additionalProperties": false,
+      "properties": {
+        "entities": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Domain objects tracked by the system.",
+          "items": {
+            "type": "object",
+            "required": ["id", "description", "fields"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Z][a-zA-Z0-9]*$",
+                "description": "PascalCase entity identifier, e.g. 'CalendarEvent'."
+              },
+              "description": {
+                "type": "string",
+                "minLength": 10,
+                "description": "What this entity represents."
+              },
+              "fields": {
+                "type": "array",
+                "minItems": 1,
+                "description": "Data fields on this entity.",
+                "items": {
+                  "type": "object",
+                  "required": ["name", "type"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Field name."
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": ["string", "number", "boolean", "Date", "enum", "ref", "array", "object"],
+                      "description": "Data type of the field."
+                    },
+                    "constraints": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "description": "Validation or database constraints (e.g. 'required', 'unique', 'max:255')."
+                    },
+                    "enum_values": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "description": "Allowed values when type is 'enum'."
+                    },
+                    "ref_target": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Target entity ID when type is 'ref'."
+                    }
+                  }
+                }
+              },
+              "relationships": {
+                "type": "array",
+                "description": "Associations to other entities.",
+                "items": {
+                  "type": "object",
+                  "required": ["target", "cardinality", "description"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "target": {
+                      "type": "string",
+                      "pattern": "^[A-Z][a-zA-Z0-9]*$",
+                      "description": "PascalCase ID of the related entity."
+                    },
+                    "cardinality": {
+                      "type": "string",
+                      "enum": ["one-to-one", "one-to-many", "many-to-one", "many-to-many"],
+                      "description": "Multiplicity of the relationship."
+                    },
+                    "description": {
+                      "type": "string",
+                      "minLength": 10,
+                      "description": "What this relationship represents."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "api_boundaries": {
+      "type": "array",
+      "description": "External-facing API surfaces.",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "type", "direction", "endpoints"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "description": "Unique kebab-case identifier for this API boundary."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable name of the API boundary."
+          },
+          "type": {
+            "type": "string",
+            "enum": ["rest", "graphql", "caldav", "sdk", "ipc"],
+            "description": "API protocol type."
+          },
+          "direction": {
+            "type": "string",
+            "enum": ["inbound", "outbound"],
+            "description": "Whether traffic flows in from external callers or out to external services."
+          },
+          "endpoints": {
+            "type": "array",
+            "description": "Individual operations exposed by this boundary.",
+            "items": {
+              "type": "object",
+              "required": ["id", "method", "path", "description", "auth"],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Unique identifier for this endpoint within the boundary."
+                },
+                "method": {
+                  "type": "string",
+                  "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "PROPFIND", "REPORT"],
+                  "description": "HTTP method (or equivalent verb) for this endpoint."
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "URL path pattern, e.g. '/api/v1/events/:id'."
+                },
+                "description": {
+                  "type": "string",
+                  "minLength": 10,
+                  "description": "What this endpoint does."
+                },
+                "auth": {
+                  "type": "string",
+                  "enum": ["oauth2", "api_key", "app_password", "none"],
+                  "description": "Authentication mechanism required to call this endpoint."
+                },
+                "request_shape": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Optional description or JSON Schema stub of the request body."
+                },
+                "response_shape": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Optional description or JSON Schema stub of the response body."
+                },
+                "error_cases": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": "Named error scenarios this endpoint can return."
+                },
+                "rate_limit": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Optional rate limit description, e.g. '100 req/min per user'."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "nfrs": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Non-functional requirements.",
+      "items": {
+        "type": "object",
+        "required": ["id", "category", "requirement", "metric", "target", "measurement_method"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^NFR-\\d{3}$",
+            "description": "NFR identifier, e.g. 'NFR-001'."
+          },
+          "category": {
+            "type": "string",
+            "enum": ["performance", "security", "reliability", "scalability", "usability", "privacy"],
+            "description": "Quality attribute this NFR addresses."
+          },
+          "requirement": {
+            "type": "string",
+            "minLength": 10,
+            "description": "The quality requirement in plain language."
+          },
+          "metric": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The measurable quantity (e.g. 'p99 latency', 'uptime')."
+          },
+          "target": {
+            "oneOf": [
+              { "type": "string", "minLength": 1 },
+              { "type": "number" }
+            ],
+            "description": "The required value for the metric (e.g. '200ms', 99.9)."
+          },
+          "measurement_method": {
+            "type": "string",
+            "minLength": 10,
+            "description": "How compliance with this NFR will be verified."
+          }
+        }
+      }
+    },
+    "technical_constraints": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Hard constraints imposed by platform, provider, legal, or distribution requirements.",
+      "items": {
+        "type": "object",
+        "required": ["id", "category", "constraint", "impact", "source"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^TC-\\d{3}$",
+            "description": "Technical constraint identifier, e.g. 'TC-001'."
+          },
+          "category": {
+            "type": "string",
+            "enum": ["platform", "sdk", "provider", "legal", "distribution"],
+            "description": "Origin category of this constraint."
+          },
+          "constraint": {
+            "type": "string",
+            "minLength": 10,
+            "description": "The constraint itself, stated clearly."
+          },
+          "impact": {
+            "type": "string",
+            "minLength": 10,
+            "description": "How this constraint affects the design or implementation."
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Where this constraint comes from (e.g. 'Apple App Store guidelines', 'GDPR Article 17')."
+          }
+        }
+      }
+    },
+    "design_direction": {
+      "type": "object",
+      "description": "Visual design guidelines and lock status.",
+      "required": ["locked", "style_summary", "color_system", "typography"],
+      "additionalProperties": false,
+      "properties": {
+        "locked": {
+          "type": "boolean",
+          "description": "When true, design decisions are finalised and must not be changed without explicit approval."
+        },
+        "style_summary": {
+          "type": "string",
+          "minLength": 10,
+          "description": "Overall aesthetic direction in plain language."
+        },
+        "color_system": {
+          "type": "object",
+          "description": "Core color palette using hex codes.",
+          "required": ["primary", "secondary", "surface", "text"],
+          "additionalProperties": false,
+          "properties": {
+            "primary": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "description": "Primary brand color in 6-digit hex."
+            },
+            "secondary": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "description": "Secondary / accent color in 6-digit hex."
+            },
+            "surface": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "description": "Background / surface color in 6-digit hex."
+            },
+            "text": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "description": "Default text color in 6-digit hex."
+            }
+          }
+        },
+        "typography": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Font family / typographic system description."
+        },
+        "approved_mock_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Optional list of approved mock file identifiers."
+        }
+      }
+    },
+    "stories": {
+      "type": "array",
+      "minItems": 1,
+      "description": "User stories and spikes that make up this epic.",
+      "items": {
+        "$ref": "story-schema.json"
+      }
+    },
+    "spike_findings": {
+      "type": "array",
+      "description": "Research outcomes from completed spike stories.",
+      "items": {
+        "type": "object",
+        "required": ["story_id", "question", "finding", "decision", "evidence", "impacts"],
+        "additionalProperties": false,
+        "properties": {
+          "story_id": {
+            "type": "string",
+            "pattern": "^US-\\d{3,}[a-z]?$",
+            "description": "ID of the spike story this finding belongs to."
+          },
+          "question": {
+            "type": "string",
+            "minLength": 10,
+            "description": "The research question that was investigated."
+          },
+          "finding": {
+            "type": "string",
+            "minLength": 10,
+            "description": "What was discovered."
+          },
+          "decision": {
+            "type": "string",
+            "minLength": 10,
+            "description": "The architectural or implementation decision made as a result."
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Links, experiments, or proof supporting the finding."
+          },
+          "impacts": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^US-\\d{3,}[a-z]?$"
+            },
+            "description": "Story IDs whose implementation is informed by this finding."
+          }
+        }
+      }
+    },
+    "open_questions": {
+      "type": "array",
+      "description": "Unresolved questions that need answers before or during execution.",
+      "items": {
+        "type": "object",
+        "required": ["id", "question", "context", "proposed_answer", "blocks"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^OQ-\\d{3}$",
+            "description": "Open question identifier, e.g. 'OQ-001'."
+          },
+          "question": {
+            "type": "string",
+            "minLength": 10,
+            "description": "The question that needs resolution."
+          },
+          "context": {
+            "type": "string",
+            "minLength": 10,
+            "description": "Why this question matters and what prompted it."
+          },
+          "proposed_answer": {
+            "oneOf": [
+              { "type": "string", "minLength": 1 },
+              { "type": "null" }
+            ],
+            "description": "A tentative answer, or null if none yet."
+          },
+          "blocks": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Story IDs or section names that cannot proceed until this is resolved."
+          }
+        }
+      }
+    }
+  }
+}
