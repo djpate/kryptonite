@@ -1,6 +1,11 @@
 import http from "node:http";
 import fs from "node:fs";
+import path from "node:path";
 import { parseArgs } from "node:util";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const { values } = parseArgs({
   options: {
@@ -13,9 +18,9 @@ const { values } = parseArgs({
 });
 
 const PORT = parseInt(values.port, 10);
-const specPath = values["spec-path"];
-const planPath = values["plan-path"];
-const statePath = values["state-path"];
+let specPath = values["spec-path"];
+let planPath = values["plan-path"];
+let statePath = values["state-path"];
 const visualOnly = values["visual-only"];
 
 if (!specPath && !visualOnly) {
@@ -26,20 +31,32 @@ if (!specPath && !visualOnly) {
 
 // ─── COMMENT PERSISTENCE ─────────────────────────────────────────────────────
 
-// Derive comments file path from state path (same directory)
-const commentsPath = statePath ? statePath.replace(/state\.json$/, "comments.json") : null;
+function getCommentsPath() {
+  return statePath ? statePath.replace(/state\.json$/, "comments.json") : null;
+}
 
 function loadComments() {
-  if (!commentsPath) return [];
+  const commentsPath = getCommentsPath();
+  if (!commentsPath) return { spec_comments: [], story_comments: [] };
   try {
     const data = fs.readFileSync(commentsPath, "utf-8");
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    // Backwards compat: if plain array, treat as spec_comments
+    if (Array.isArray(parsed)) {
+      return { spec_comments: parsed, story_comments: [] };
+    }
+    // Ensure both keys exist
+    return {
+      spec_comments: parsed.spec_comments || [],
+      story_comments: parsed.story_comments || [],
+    };
   } catch {
-    return [];
+    return { spec_comments: [], story_comments: [] };
   }
 }
 
 function saveComments() {
+  const commentsPath = getCommentsPath();
   if (!commentsPath) return;
   try {
     fs.writeFileSync(commentsPath, JSON.stringify(comments, null, 2), "utf-8");
@@ -48,9 +65,8 @@ function saveComments() {
   }
 }
 
-const comments = loadComments();
+let comments = loadComments();
 let visualContent = "";
-let nextCommentId = comments.length > 0 ? Math.max(...comments.map(c => c.id)) + 1 : 1;
 const mockSelections = {}; // { storyId: "option-a" }
 
 function getState() {
@@ -60,6 +76,17 @@ function getState() {
   } catch {
     return null;
   }
+}
+
+function getEpicDir() {
+  if (!statePath) return null;
+  return path.dirname(statePath);
+}
+
+function getProjectDir() {
+  const epicDir = getEpicDir();
+  if (!epicDir) return null;
+  return path.dirname(epicDir);
 }
 
 function escapeHtml(s) {
@@ -280,7 +307,7 @@ const COMMENT_CLIENT_SCRIPT = `
   var submitBtn = document.getElementById('kryp-submit-comment');
 
   function timeAgo(ts) {
-    var s = Math.floor((Date.now() - ts) / 1000);
+    var s = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
     if (s < 60) return 'just now';
     if (s < 3600) return Math.floor(s/60) + 'm ago';
     if (s < 86400) return Math.floor(s/3600) + 'h ago';
@@ -335,7 +362,7 @@ const COMMENT_CLIENT_SCRIPT = `
     fetch('/api/comments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ section: currentSection, text: text, timestamp: Date.now() })
+      body: JSON.stringify({ section: currentSection, text: text })
     }).then(function() {
       newCommentArea.value = '';
       loadComments();
@@ -351,8 +378,7 @@ const COMMENT_CLIENT_SCRIPT = `
 
   function loadComments() {
     if (!currentSection) return;
-    fetch('/api/comments').then(function(r){ return r.json(); }).then(function(all) {
-      var filtered = all.filter(function(c){ return c.section === currentSection; });
+    fetch('/api/comments?section=' + encodeURIComponent(currentSection)).then(function(r){ return r.json(); }).then(function(filtered) {
       if (filtered.length === 0) {
         panelBody.innerHTML = '<div class="kryp-empty">No comments yet.<br>Be the first to add one below.</div>';
         return;
@@ -456,7 +482,8 @@ const COMMENT_CLIENT_SCRIPT = `
 
   function updateBadges() {
     document.querySelectorAll('.kryp-comment-badge').forEach(function(b){ b.remove(); });
-    fetch('/api/comments').then(function(r){ return r.json(); }).then(function(all) {
+    fetch('/api/comments').then(function(r){ return r.json(); }).then(function(data) {
+      var all = data.spec_comments || [];
       var countEl = document.getElementById('kryp-comment-count');
       if (countEl) countEl.textContent = all.length > 0 ? all.length + ' comment' + (all.length > 1 ? 's' : '') : '';
 
@@ -890,73 +917,38 @@ function dashboardHTML() {
 </html>`;
 }
 
+// ─── STATIC FILE SERVING ─────────────────────────────────────────────────────
+
+const UI_DIR = path.join(__dirname, "..", "ui");
+
+const CONTENT_TYPES = {
+  ".html": "text/html",
+  ".css": "text/css",
+  ".js": "application/javascript",
+  ".png": "image/png",
+  ".svg": "image/svg+xml",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".json": "application/json",
+};
+
+function serveStaticFile(filePath, res) {
+  try {
+    const content = fs.readFileSync(filePath);
+    const ext = path.extname(filePath).toLowerCase();
+    const contentType = CONTENT_TYPES[ext] || "application/octet-stream";
+    res.writeHead(200, { "Content-Type": contentType });
+    res.end(content);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ─── SERVER ──────────────────────────────────────────────────────────────────
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
-
-  // API: comments
-  if (url.pathname === "/api/comments" && req.method === "GET") {
-    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
-    res.end(JSON.stringify(comments));
-    return;
-  }
-
-  if (url.pathname === "/api/comments" && req.method === "POST") {
-    let body = "";
-    req.on("data", (chunk) => (body += chunk));
-    req.on("end", () => {
-      try {
-        const comment = JSON.parse(body);
-        comment.id = nextCommentId++;
-        comments.push(comment);
-        saveComments();
-        res.writeHead(201, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(comment));
-      } catch {
-        res.writeHead(400);
-        res.end("Invalid JSON");
-      }
-    });
-    return;
-  }
-
-  // API: update comment
-  const putMatch = url.pathname.match(/^\/api\/comments\/(\d+)$/);
-  if (putMatch && req.method === "PUT") {
-    let body = "";
-    req.on("data", (chunk) => (body += chunk));
-    req.on("end", () => {
-      const id = parseInt(putMatch[1], 10);
-      const idx = comments.findIndex(c => c.id === id);
-      if (idx === -1) { res.writeHead(404); res.end("Not found"); return; }
-      try {
-        const update = JSON.parse(body);
-        comments[idx].text = update.text;
-        comments[idx].edited_at = Date.now();
-        saveComments();
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(comments[idx]));
-      } catch {
-        res.writeHead(400);
-        res.end("Invalid JSON");
-      }
-    });
-    return;
-  }
-
-  // API: delete comment
-  const deleteMatch = url.pathname.match(/^\/api\/comments\/(\d+)$/);
-  if (deleteMatch && req.method === "DELETE") {
-    const id = parseInt(deleteMatch[1], 10);
-    const idx = comments.findIndex(c => c.id === id);
-    if (idx === -1) { res.writeHead(404); res.end("Not found"); return; }
-    comments.splice(idx, 1);
-    saveComments();
-    res.writeHead(204);
-    res.end();
-    return;
-  }
 
   // CORS preflight
   if (req.method === "OPTIONS") {
@@ -965,18 +957,291 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ─── Static file serving for /ui/ ───────────────────────────────────────────
+  if (url.pathname.startsWith("/ui/")) {
+    const relativePath = url.pathname.slice(4); // strip "/ui/"
+    const filePath = path.join(UI_DIR, relativePath);
+    // Prevent directory traversal
+    if (!filePath.startsWith(UI_DIR)) {
+      res.writeHead(403);
+      res.end("Forbidden");
+      return;
+    }
+    if (!serveStaticFile(filePath, res)) {
+      res.writeHead(404);
+      res.end("Not found");
+    }
+    return;
+  }
+
+  // ─── API: epic ──────────────────────────────────────────────────────────────
+  if (url.pathname === "/api/epic" && req.method === "GET") {
+    const epicDir = getEpicDir();
+    if (!epicDir) {
+      res.writeHead(404, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ error: "No epic directory" }));
+      return;
+    }
+    const epicPath = path.join(epicDir, "epic.json");
+    try {
+      const data = fs.readFileSync(epicPath, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(data);
+    } catch {
+      res.writeHead(404, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ error: "epic.json not found" }));
+    }
+    return;
+  }
+
+  // ─── API: repos ─────────────────────────────────────────────────────────────
+  if (url.pathname === "/api/repos" && req.method === "GET") {
+    const projectDir = getProjectDir();
+    if (!projectDir) {
+      res.writeHead(404, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify([]));
+      return;
+    }
+    const reposPath = path.join(projectDir, "repos.json");
+    try {
+      const data = JSON.parse(fs.readFileSync(reposPath, "utf-8"));
+      // Normalize: could be { repos: [...] } or a plain array
+      const repos = Array.isArray(data) ? data : (Array.isArray(data.repos) ? data.repos : []);
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify(repos));
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify([]));
+    }
+    return;
+  }
+
+  // ─── API: epics (list all) ──────────────────────────────────────────────────
+  if (url.pathname === "/api/epics" && req.method === "GET") {
+    const projectDir = getProjectDir();
+    if (!projectDir) {
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify([]));
+      return;
+    }
+    const currentEpicDir = getEpicDir();
+    try {
+      const entries = fs.readdirSync(projectDir, { withFileTypes: true });
+      const epics = [];
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const epicJsonPath = path.join(projectDir, entry.name, "epic.json");
+        try {
+          const epicData = JSON.parse(fs.readFileSync(epicJsonPath, "utf-8"));
+          let stateData = null;
+          const stateJsonPath = path.join(projectDir, entry.name, "state.json");
+          try {
+            stateData = JSON.parse(fs.readFileSync(stateJsonPath, "utf-8"));
+          } catch {}
+          const stories = stateData?.stories || [];
+          const doneCount = stories.filter(s => s.status === "done").length;
+          const progress = stories.length > 0 ? Math.round((doneCount / stories.length) * 100) : 0;
+          epics.push({
+            slug: entry.name,
+            name: epicData.name || entry.name,
+            status: epicData.status || stateData?.phase || "unknown",
+            phase: stateData?.phase || epicData.phase || null,
+            story_count: stories.length,
+            progress,
+            current: path.join(projectDir, entry.name) === currentEpicDir,
+          });
+        } catch {
+          // Skip directories without valid epic.json
+        }
+      }
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify(epics));
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify([]));
+    }
+    return;
+  }
+
+  // ─── API: epics/switch ──────────────────────────────────────────────────────
+  if (url.pathname === "/api/epics/switch" && req.method === "POST") {
+    let body = "";
+    req.on("data", (chunk) => (body += chunk));
+    req.on("end", () => {
+      try {
+        const { slug } = JSON.parse(body);
+        const projectDir = getProjectDir();
+        if (!projectDir || !slug) {
+          res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+          res.end(JSON.stringify({ error: "Missing slug or no project directory" }));
+          return;
+        }
+        const newStatePath = path.join(projectDir, slug, "state.json");
+        if (!fs.existsSync(newStatePath)) {
+          res.writeHead(404, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+          res.end(JSON.stringify({ error: "Epic not found: " + slug }));
+          return;
+        }
+        // Switch paths
+        statePath = newStatePath;
+        specPath = path.join(projectDir, slug, "spec.html");
+        planPath = path.join(projectDir, slug, "plan.html");
+        // Reload comments for new epic
+        comments = loadComments();
+        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        res.end(JSON.stringify({ switched: slug }));
+      } catch {
+        res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        res.end(JSON.stringify({ error: "Invalid JSON" }));
+      }
+    });
+    return;
+  }
+
+  // ─── API: comments ──────────────────────────────────────────────────────────
+  if (url.pathname === "/api/comments" && req.method === "GET") {
+    const storyId = url.searchParams.get("story_id");
+    const section = url.searchParams.get("section");
+    if (storyId) {
+      const filtered = comments.story_comments.filter(c => c.story_id === storyId);
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify(filtered));
+    } else if (section) {
+      const filtered = comments.spec_comments.filter(c => c.section === section);
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify(filtered));
+    } else {
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify(comments));
+    }
+    return;
+  }
+
+  if (url.pathname === "/api/comments" && req.method === "POST") {
+    let body = "";
+    req.on("data", (chunk) => (body += chunk));
+    req.on("end", () => {
+      try {
+        const data = JSON.parse(body);
+        const comment = {
+          id: `c${Date.now()}`,
+          text: data.text,
+          timestamp: new Date().toISOString(),
+          resolved: false,
+          parent_id: data.parent_id || null,
+        };
+        if (data.story_id) {
+          comment.story_id = data.story_id;
+          comments.story_comments.push(comment);
+        } else {
+          comment.section = data.section || null;
+          comments.spec_comments.push(comment);
+        }
+        saveComments();
+        res.writeHead(201, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        res.end(JSON.stringify(comment));
+      } catch {
+        res.writeHead(400, { "Access-Control-Allow-Origin": "*" });
+        res.end("Invalid JSON");
+      }
+    });
+    return;
+  }
+
+  // API: update comment
+  const putMatch = url.pathname.match(/^\/api\/comments\/(.+)$/);
+  if (putMatch && req.method === "PUT") {
+    let body = "";
+    req.on("data", (chunk) => (body += chunk));
+    req.on("end", () => {
+      const id = putMatch[1];
+      // Search both arrays
+      let idx = comments.spec_comments.findIndex(c => c.id === id);
+      let arr = comments.spec_comments;
+      if (idx === -1) {
+        idx = comments.story_comments.findIndex(c => c.id === id);
+        arr = comments.story_comments;
+      }
+      if (idx === -1) { res.writeHead(404, { "Access-Control-Allow-Origin": "*" }); res.end("Not found"); return; }
+      try {
+        const update = JSON.parse(body);
+        if (update.text !== undefined) arr[idx].text = update.text;
+        if (update.resolved !== undefined) arr[idx].resolved = update.resolved;
+        arr[idx].edited_at = new Date().toISOString();
+        saveComments();
+        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        res.end(JSON.stringify(arr[idx]));
+      } catch {
+        res.writeHead(400, { "Access-Control-Allow-Origin": "*" });
+        res.end("Invalid JSON");
+      }
+    });
+    return;
+  }
+
+  // API: delete comment
+  const deleteMatch = url.pathname.match(/^\/api\/comments\/(.+)$/);
+  if (deleteMatch && req.method === "DELETE") {
+    const id = deleteMatch[1];
+    // Search both arrays
+    let idx = comments.spec_comments.findIndex(c => c.id === id);
+    if (idx !== -1) {
+      comments.spec_comments.splice(idx, 1);
+    } else {
+      idx = comments.story_comments.findIndex(c => c.id === id);
+      if (idx !== -1) {
+        comments.story_comments.splice(idx, 1);
+      } else {
+        res.writeHead(404, { "Access-Control-Allow-Origin": "*" });
+        res.end("Not found");
+        return;
+      }
+    }
+    saveComments();
+    res.writeHead(204, { "Access-Control-Allow-Origin": "*" });
+    res.end();
+    return;
+  }
+
   // API: state
   if (url.pathname === "/api/state" && req.method === "GET") {
     const state = getState();
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
     res.end(JSON.stringify(state || { error: "No state file" }));
     return;
   }
 
-  // Mocks gallery
+  // ─── UI page routes ─────────────────────────────────────────────────────────
+
+  // Stories page
+  if (url.pathname === "/stories") {
+    const filePath = path.join(UI_DIR, "stories.html");
+    if (!serveStaticFile(filePath, res)) {
+      res.writeHead(404);
+      res.end("stories.html not found");
+    }
+    return;
+  }
+
+  // Mocks page (static UI version)
   if (url.pathname === "/mocks") {
-    res.writeHead(200, { "Content-Type": "text/html" });
-    res.end(mocksGalleryHTML());
+    const filePath = path.join(UI_DIR, "mocks.html");
+    if (!serveStaticFile(filePath, res)) {
+      // Fallback to server-generated mocks gallery
+      res.writeHead(200, { "Content-Type": "text/html" });
+      res.end(mocksGalleryHTML());
+    }
+    return;
+  }
+
+  // Dashboard page (static UI version)
+  if (url.pathname === "/dashboard") {
+    const filePath = path.join(UI_DIR, "dashboard.html");
+    if (!serveStaticFile(filePath, res)) {
+      // Fallback to server-generated dashboard
+      res.writeHead(200, { "Content-Type": "text/html" });
+      res.end(dashboardHTML());
+    }
     return;
   }
 
@@ -1030,13 +1295,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Dashboard
-  if (url.pathname === "/dashboard") {
-    res.writeHead(200, { "Content-Type": "text/html" });
-    res.end(dashboardHTML());
-    return;
-  }
-
   // Plan
   if (url.pathname === "/plan") {
     if (!planPath) { res.writeHead(404); res.end("Plan not generated yet"); return; }
@@ -1077,9 +1335,17 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Spec (root)
+  // Spec (root) or index.html
   if (url.pathname === "/" || url.pathname === "/spec") {
     if (visualOnly) { res.writeHead(302, { Location: "/visual" }); res.end(); return; }
+
+    // Try serving static index.html first (for "/" only)
+    if (url.pathname === "/") {
+      const indexPath = path.join(UI_DIR, "index.html");
+      if (serveStaticFile(indexPath, res)) return;
+    }
+
+    // Fall back to spec
     if (!specPath) { res.writeHead(404); res.end("Spec not generated yet"); return; }
     try {
       const html = fs.readFileSync(specPath, "utf-8");
