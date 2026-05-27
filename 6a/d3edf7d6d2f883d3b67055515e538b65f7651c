@@ -1,0 +1,22 @@
+skills/kryptonite/scripts/comment-server.js
+  s_5609fb30c03238::t_6cc07e580cab12 138
+  s_5609fb30c03238::t_3fa98007e2ceb8 545
+  s_5609fb30c03238::t_d0eec960c4ac6b 851,855-856,861,865-866
+  s_5609fb30c03238::t_fdeedb1607c171 914,916-917
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "6ad3edf7d6d2f883d3b67055515e538b65f7651c",
+  "prompts": {},
+  "sessions": {
+    "s_5609fb30c03238": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c8c6628f-bd22-4376-ae8e-3490847c27aa",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
