@@ -1,0 +1,102 @@
+{
+  "version": "1.0.0",
+  "generated_at": "2026-05-27T00:00:00Z",
+  "epic_slug": "test-epic",
+  "overview": {
+    "name": "Test Project",
+    "description": "A minimal test project for schema validation",
+    "goals": ["Validate spec schema works", "Prove semantic checks pass"],
+    "non_goals": ["Building a real product"],
+    "target_users": ["Developers"]
+  },
+  "parties": [
+    { "id": "developer", "name": "Developer", "description": "The person building the software", "auth": "none", "boundaries": "Full access to codebase" }
+  ],
+  "repos": [
+    { "id": "main-repo", "name": "main-repo", "stack": "Node.js + TypeScript", "path": "/home/dev/project" }
+  ],
+  "architecture": {
+    "components": [
+      { "id": "api-server", "name": "ApiServer", "type": "service", "responsibility": "Handles incoming HTTP requests and routes them", "repo": "main-repo", "key_files": ["src/server.ts"] },
+      { "id": "data-store", "name": "DataStore", "type": "store", "responsibility": "Persists and retrieves application data", "repo": "main-repo", "key_files": ["src/store.ts"] }
+    ],
+    "interactions": [
+      { "from": "api-server", "to": "data-store", "protocol": "function_call", "description": "Server reads/writes data through store interface", "async": false }
+    ],
+    "decisions": [
+      {
+        "id": "ADR-001",
+        "title": "Use file-based storage over database",
+        "status": "accepted",
+        "context": "Simple project with low data volume, no concurrent writes",
+        "choice": "JSON file storage with atomic writes",
+        "alternatives": [{ "option": "SQLite", "rejected_because": "Adds dependency for simple key-value needs" }],
+        "consequences": ["No concurrent write safety", "Simpler deployment"]
+      }
+    ]
+  },
+  "data_model": {
+    "entities": [
+      {
+        "id": "Item",
+        "description": "A single work item tracked by the system",
+        "fields": [
+          { "name": "id", "type": "string", "constraints": ["required", "unique"] },
+          { "name": "title", "type": "string", "constraints": ["required"] },
+          { "name": "status", "type": "enum", "constraints": ["required"], "enum_values": ["open", "closed"] }
+        ],
+        "relationships": []
+      }
+    ]
+  },
+  "api_boundaries": [
+    {
+      "id": "http-api",
+      "name": "HTTP REST API",
+      "type": "rest",
+      "direction": "inbound",
+      "endpoints": [
+        {
+          "id": "get-items",
+          "method": "GET",
+          "path": "/items",
+          "description": "List all items in the system",
+          "auth": "none",
+          "response_shape": "{ items: Item[] }",
+          "error_cases": []
+        }
+      ]
+    }
+  ],
+  "nfrs": [
+    { "id": "NFR-001", "category": "performance", "requirement": "API responses must return within 100ms under normal load", "metric": "p99_latency_ms", "target": 100, "measurement_method": "Load test with k6" }
+  ],
+  "technical_constraints": [
+    { "id": "TC-001", "category": "platform", "constraint": "Must run on Node.js 20+ without native dependencies", "impact": "Cannot use native SQLite bindings", "source": "Deployment environment" }
+  ],
+  "design_direction": {
+    "locked": false,
+    "style_summary": "Minimal CLI tool, no visual UI needed",
+    "color_system": { "primary": "#10b981", "secondary": "#3b82f6", "surface": "#1e293b", "text": "#e2e8f0" },
+    "typography": "monospace system font stack",
+    "approved_mock_ids": []
+  },
+  "stories": [
+    {
+      "id": "US-001",
+      "type": "feature",
+      "party": "developer",
+      "repo": "main-repo",
+      "statement": { "as_a": "developer", "i_want": "to list all items via CLI", "so_that": "I can see what work exists" },
+      "acceptance_criteria": ["Running 'list' shows all items with their status"],
+      "definition_of_done": [
+        { "description": "CLI list command returns all items", "validation": { "method": "test_suite", "command": "npm test -- --grep US-001", "expect": "PASS" } }
+      ],
+      "priority": "critical",
+      "dependencies": [],
+      "estimated_complexity": "simple"
+    }
+  ],
+  "spike_findings": [],
+  "open_questions": []
+}

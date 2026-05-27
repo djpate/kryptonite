@@ -1,0 +1,70 @@
+{
+  "version": "1.0.0",
+  "generated_at": "2026-05-27T00:00:00Z",
+  "epic_slug": "test-epic",
+  "spec_version": "1.0.0",
+  "summary": {
+    "total_stories": 1,
+    "total_waves": 1,
+    "critical_path_depth": 1,
+    "priority_breakdown": { "critical": 1, "high": 0, "medium": 0, "low": 0 },
+    "estimated_duration": "1 day"
+  },
+  "waves": [
+    {
+      "id": "wave-0",
+      "name": "Foundation",
+      "sequence": 0,
+      "theme": "Set up the basic project structure and implement core feature",
+      "estimated_duration": "1 day",
+      "prerequisites": [],
+      "parallel_groups": [
+        {
+          "id": "wave-0/core",
+          "name": "core",
+          "domain": "src/ — main application logic",
+          "blocking": false,
+          "stories": ["US-001"],
+          "tasks": [
+            {
+              "id": "T-001",
+              "story_ref": "US-001",
+              "description": "Implement list command that reads items from store",
+              "file_paths": ["src/commands/list.ts", "src/store.ts"],
+              "commands": ["npm test"],
+              "effort": "S",
+              "depends_on": []
+            }
+          ]
+        }
+      ],
+      "demo_checkpoint": {
+        "description": "Running the CLI list command shows items from the data file",
+        "validates": ["US-001"],
+        "criteria": ["CLI outputs item list in expected format", "Empty state shows helpful message"]
+      },
+      "post_wave_validation": [
+        { "check": "Tests pass", "command": "npm test", "expect": "exit 0" }
+      ]
+    }
+  ],
+  "critical_path": [
+    { "story_id": "US-001", "wave": "wave-0", "reason": "Only story — is the critical path by definition" }
+  ],
+  "parallel_strategy": {
+    "max_concurrent_agents": 1,
+    "file_conflict_rules": [],
+    "worktree_strategy": "per_parallel_group"
+  },
+  "risks": [
+    {
+      "id": "RISK-001",
+      "category": "complexity",
+      "description": "File locking on concurrent access could corrupt data store",
+      "probability": "low",
+      "impact": "medium",
+      "mitigation": "Use atomic write pattern (write to tmp, rename) — already standard in the project",
+      "affected_stories": ["US-001"]
+    }
+  ]
+}
