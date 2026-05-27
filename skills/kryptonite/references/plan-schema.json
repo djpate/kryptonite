@@ -1,0 +1,441 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KryptonitePlan",
+  "description": "Schema for a kryptonite implementation plan document. Generated during Phase 11 after spec approval. Validated by validate-plan.js before execution begins.",
+  "type": "object",
+  "required": [
+    "version",
+    "generated_at",
+    "epic_slug",
+    "spec_version",
+    "summary",
+    "waves",
+    "critical_path",
+    "parallel_strategy",
+    "risks"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+",
+      "description": "Semantic version of this plan document, e.g. 1.0.0"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 datetime when this plan was generated"
+    },
+    "epic_slug": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Slug identifier for the epic this plan belongs to, e.g. user-auth"
+    },
+    "spec_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+",
+      "description": "Semantic version of the spec document this plan was generated from"
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "total_stories",
+        "total_waves",
+        "critical_path_depth",
+        "priority_breakdown",
+        "estimated_duration"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "total_stories": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total number of user stories covered by this plan"
+        },
+        "total_waves": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total number of execution waves in this plan"
+        },
+        "critical_path_depth": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Length of the longest dependency chain through the plan"
+        },
+        "priority_breakdown": {
+          "type": "object",
+          "required": ["critical", "high", "medium", "low"],
+          "additionalProperties": false,
+          "properties": {
+            "critical": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of critical priority stories"
+            },
+            "high": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of high priority stories"
+            },
+            "medium": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of medium priority stories"
+            },
+            "low": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of low priority stories"
+            }
+          }
+        },
+        "estimated_duration": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable total duration estimate, e.g. '3-4 days'"
+        }
+      }
+    },
+    "waves": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Ordered list of execution waves. Each wave is a cohesive unit of parallel work.",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "sequence",
+          "theme",
+          "estimated_duration",
+          "parallel_groups",
+          "demo_checkpoint"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^wave-\\d+$",
+            "description": "Wave identifier, e.g. wave-1"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Short human-readable name for this wave"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Zero-based execution order index"
+          },
+          "theme": {
+            "type": "string",
+            "minLength": 5,
+            "description": "Thematic description of what this wave accomplishes, e.g. 'Core authentication foundation'"
+          },
+          "estimated_duration": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable duration estimate for this wave, e.g. '1-2 days'"
+          },
+          "prerequisites": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^wave-\\d+$"
+            },
+            "description": "IDs of waves that must complete before this wave begins. Omit or leave empty for wave-1."
+          },
+          "parallel_groups": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Groups of stories and tasks that can execute concurrently within this wave",
+            "items": {
+              "type": "object",
+              "required": ["id", "name", "domain", "stories", "tasks"],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Unique identifier for this parallel group, e.g. pg-1-a"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Human-readable name for this group"
+                },
+                "domain": {
+                  "type": "string",
+                  "minLength": 3,
+                  "description": "Technical domain this group touches, e.g. 'backend', 'frontend', 'database'"
+                },
+                "blocking": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Whether other parallel groups in this wave must wait for this group to complete"
+                },
+                "stories": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^US-\\d{3,}[a-z]?$"
+                  },
+                  "description": "Story IDs covered by this parallel group"
+                },
+                "tasks": {
+                  "type": "array",
+                  "minItems": 1,
+                  "description": "Concrete implementation tasks within this group",
+                  "items": {
+                    "type": "object",
+                    "required": ["id", "story_ref", "description", "file_paths", "effort"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "pattern": "^T-\\d{3,}$",
+                        "description": "Unique task identifier, e.g. T-001"
+                      },
+                      "story_ref": {
+                        "type": "string",
+                        "pattern": "^US-\\d{3,}[a-z]?$",
+                        "description": "The story this task implements, e.g. US-001"
+                      },
+                      "description": {
+                        "type": "string",
+                        "minLength": 5,
+                        "description": "What this task does"
+                      },
+                      "file_paths": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Files this task creates or modifies"
+                      },
+                      "commands": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Shell commands to run as part of this task (generators, migrations, etc.)"
+                      },
+                      "effort": {
+                        "type": "string",
+                        "enum": ["S", "M", "L", "XL"],
+                        "description": "Effort size estimate. S=small (<2h), M=medium (2-4h), L=large (4-8h), XL=extra-large (>8h)"
+                      },
+                      "depends_on": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^T-\\d{3,}$"
+                        },
+                        "description": "Task IDs that must complete before this task begins"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "demo_checkpoint": {
+            "type": "object",
+            "required": ["description", "validates", "criteria"],
+            "additionalProperties": false,
+            "description": "End-of-wave demonstration and validation checkpoint",
+            "properties": {
+              "description": {
+                "type": "string",
+                "minLength": 10,
+                "description": "What is demonstrated at this checkpoint"
+              },
+              "validates": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "pattern": "^US-\\d{3,}[a-z]?$"
+                },
+                "description": "Story IDs verified at this checkpoint"
+              },
+              "criteria": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 5
+                },
+                "description": "Specific pass/fail criteria for the demo checkpoint"
+              }
+            }
+          },
+          "post_wave_validation": {
+            "type": "array",
+            "description": "Automated checks to run after the wave completes to confirm correctness",
+            "items": {
+              "type": "object",
+              "required": ["check", "command", "expect"],
+              "additionalProperties": false,
+              "properties": {
+                "check": {
+                  "type": "string",
+                  "minLength": 5,
+                  "description": "Human-readable description of what is being verified"
+                },
+                "command": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Shell command to execute for this validation"
+                },
+                "expect": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Expected output or exit condition, e.g. '0', 'PASS', '200'"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "critical_path": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Ordered list of stories on the critical path. Delays here delay the entire plan.",
+      "items": {
+        "type": "object",
+        "required": ["story_id", "wave", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "story_id": {
+            "type": "string",
+            "pattern": "^US-\\d{3,}[a-z]?$",
+            "description": "Story ID on the critical path"
+          },
+          "wave": {
+            "type": "string",
+            "pattern": "^wave-\\d+$",
+            "description": "Wave this story belongs to"
+          },
+          "blocks": {
+            "type": "string",
+            "pattern": "^US-\\d{3,}[a-z]?$",
+            "description": "The next story this one blocks on the critical path (omit for the final story)"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 5,
+            "description": "Why this story is on the critical path"
+          }
+        }
+      }
+    },
+    "parallel_strategy": {
+      "type": "object",
+      "required": ["max_concurrent_agents", "file_conflict_rules", "worktree_strategy"],
+      "additionalProperties": false,
+      "description": "Configuration for how parallel execution is managed",
+      "properties": {
+        "max_concurrent_agents": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Maximum number of agents running in parallel at any time"
+        },
+        "file_conflict_rules": {
+          "type": "array",
+          "description": "Rules that restrict which agent/group may touch certain files to prevent conflicts",
+          "items": {
+            "type": "object",
+            "required": ["pattern", "exclusive_to", "reason"],
+            "additionalProperties": false,
+            "properties": {
+              "pattern": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Glob or regex pattern matching the protected files, e.g. 'db/schema.rb'"
+              },
+              "exclusive_to": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Parallel group ID or domain that exclusively owns these files"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 5,
+                "description": "Why this exclusivity rule is needed"
+              }
+            }
+          }
+        },
+        "worktree_strategy": {
+          "type": "string",
+          "enum": ["per_parallel_group", "per_story"],
+          "description": "How git worktrees are allocated. per_parallel_group = one worktree per group; per_story = one worktree per story."
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "description": "Identified risks that could affect plan execution",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "category",
+          "description",
+          "probability",
+          "impact",
+          "mitigation",
+          "affected_stories"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^RISK-\\d{3}$",
+            "description": "Unique risk identifier, e.g. RISK-001"
+          },
+          "category": {
+            "type": "string",
+            "enum": ["external_dependency", "complexity", "integration", "timing"],
+            "description": "Risk category. external_dependency = third-party API/service risk. complexity = underestimated technical challenge. integration = cross-service integration risk. timing = schedule or sequencing risk."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 10,
+            "description": "What could go wrong"
+          },
+          "probability": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "Likelihood this risk materialises"
+          },
+          "impact": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "Severity of impact if the risk materialises"
+          },
+          "mitigation": {
+            "type": "string",
+            "minLength": 10,
+            "description": "Planned response or mitigation strategy"
+          },
+          "affected_stories": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^US-\\d{3,}[a-z]?$"
+            },
+            "description": "Story IDs that would be affected if this risk materialises"
+          }
+        }
+      }
+    }
+  }
+}
