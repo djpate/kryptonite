@@ -544,7 +544,7 @@ function injectUI(html) {
 // ─── STATIC FILE SERVING ─────────────────────────────────────────────────────
 // (legacy inline HTML generators removed — replaced by static pages in ui/)
 
-const UI_DIR = path.join(__dirname, "..", "ui");
+const UI_DIR = path.join(__dirname, "ui");
 
 const CONTENT_TYPES = {
   ".html": "text/html",
