@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kryptonite — Spec</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.min.css" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+  <script src="/ui/assets/app.js"></script>
+  <link rel="stylesheet" href="/ui/assets/style.css">
+  <style>
+    /* Spec-specific design tokens */
+    .spec-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 0.75rem;
+      padding: 1rem;
+    }
+
+    .section-title {
+      color: #10b981;
+      text-transform: uppercase;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.5rem;
+    }
+
+    .spec-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    .spec-table th {
+      background: #0f172a;
+      color: #64748b;
+      text-transform: uppercase;
+      font-size: 0.65rem;
+      letter-spacing: 0.05em;
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid #334155;
+    }
+
+    .spec-table td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid #1e293b;
+      color: #cbd5e1;
+      vertical-align: top;
+    }
+
+    .spec-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .spec-table tr:hover td {
+      background: rgba(255,255,255,0.02);
+    }
+
+    /* Priority pills */
+    .pill-critical {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      background: #450a0a;
+      color: #f87171;
+      border: 1px solid #7f1d1d;
+    }
+
+    .pill-high {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      background: #451a03;
+      color: #fbbf24;
+      border: 1px solid #78350f;
+    }
+
+    .pill-medium {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      background: #0c1929;
+      color: #60a5fa;
+      border: 1px solid #1e3a5f;
+    }
+
+    .pill-low {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      background: #1e293b;
+      color: #94a3b8;
+      border: 1px solid #334155;
+    }
+
+    /* Enum tag */
+    .enum-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.1rem 0.4rem;
+      border-radius: 0.25rem;
+      font-size: 0.65rem;
+      font-family: ui-monospace, monospace;
+      background: #1e293b;
+      color: #94a3b8;
+      border: 1px solid #334155;
+      margin: 0.1rem;
+    }
+
+    /* Sidebar nav */
+    .spec-nav-link {
+      display: block;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.75rem;
+      color: #64748b;
+      border-radius: 0.375rem;
+      text-decoration: none;
+      transition: color 0.15s ease, background 0.15s ease;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .spec-nav-link:hover {
+      color: #e2e8f0;
+      background: rgba(255,255,255,0.05);
+    }
+
+    .spec-nav-link.active {
+      color: #10b981;
+      background: rgba(16, 185, 129, 0.1);
+    }
+
+    /* ADR status badge */
+    .adr-accepted { background: #052e16; color: #4ade80; border: 1px solid #14532d; }
+    .adr-superseded { background: #1c1917; color: #a8a29e; border: 1px solid #44403c; }
+    .adr-deprecated { background: #450a0a; color: #f87171; border: 1px solid #7f1d1d; }
+
+    /* Open question warning */
+    .oq-card {
+      background: #1e293b;
+      border: 1px solid #92400e;
+      border-radius: 0.75rem;
+      padding: 1rem;
+    }
+
+    /* Smooth scroll offset for sticky nav */
+    html {
+      scroll-behavior: smooth;
+    }
+
+    section[id] {
+      scroll-margin-top: 72px;
+    }
+  </style>
+</head>
+<body x-data="specApp()" x-init="load()">
+  <div id="nav-container"></div>
+
+  <!-- Loading State -->
+  <div x-show="!spec" class="flex items-center justify-center h-screen" style="margin-top: 56px;">
+    <div class="text-center">
+      <div class="loading loading-spinner loading-lg text-emerald-500 mb-4"></div>
+      <p class="text-slate-400 text-sm">Loading spec...</p>
+    </div>
+  </div>
+
+  <!-- Main Layout -->
+  <div x-show="spec" class="flex" style="margin-top: 56px; min-height: calc(100vh - 56px);">
+
+    <!-- Sticky Sidebar -->
+    <aside class="hidden lg:block w-52 flex-shrink-0 sticky top-14 h-[calc(100vh-56px)] overflow-y-auto border-r border-slate-800 py-4 px-2">
+      <nav class="space-y-0.5">
+        <a href="#overview" class="spec-nav-link">Overview</a>
+        <a href="#parties" class="spec-nav-link">Parties</a>
+        <a href="#architecture" class="spec-nav-link">Architecture</a>
+        <a href="#data-model" class="spec-nav-link">Data Model</a>
+        <a href="#api-boundaries" class="spec-nav-link">API Boundaries</a>
+        <a href="#nfrs" class="spec-nav-link">NFRs</a>
+        <a href="#technical-constraints" class="spec-nav-link">Technical Constraints</a>
+        <a href="#stories" class="spec-nav-link">Stories</a>
+        <template x-if="spec && (spec.spike_findings || []).length > 0">
+          <a href="#spike-findings" class="spec-nav-link">Spike Findings</a>
+        </template>
+        <template x-if="spec && (spec.open_questions || []).length > 0">
+          <a href="#open-questions" class="spec-nav-link">Open Questions</a>
+        </template>
+      </nav>
+
+      <!-- Meta Info -->
+      <template x-if="spec">
+        <div class="mt-6 px-2 space-y-2">
+          <div>
+            <div class="section-title">Version</div>
+            <div class="text-xs font-mono text-slate-400" x-text="spec.version"></div>
+          </div>
+          <div>
+            <div class="section-title">Epic</div>
+            <div class="text-xs font-mono text-slate-400" x-text="spec.epic_slug"></div>
+          </div>
+          <div>
+            <div class="section-title">Generated</div>
+            <div class="text-xs text-slate-500" x-text="spec.generated_at ? new Date(spec.generated_at).toLocaleDateString() : ''"></div>
+          </div>
+        </div>
+      </template>
+    </aside>
+
+    <!-- Content Area -->
+    <main class="flex-1 overflow-x-hidden px-4 lg:px-8 py-6 max-w-5xl">
+
+      <!-- ── OVERVIEW ────────────────────────────────────────────── -->
+      <section id="overview" class="mb-10" x-show="spec">
+        <div class="section-title">Overview</div>
+        <h1 class="text-2xl font-bold text-slate-100 mb-2" x-text="spec?.overview?.name"></h1>
+        <p class="text-sm text-slate-300 leading-relaxed mb-4" x-text="spec?.overview?.description"></p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Goals -->
+          <div class="spec-card">
+            <div class="section-title">Goals</div>
+            <ul class="space-y-1.5">
+              <template x-for="(goal, i) in (spec?.overview?.goals || [])" :key="i">
+                <li class="flex items-start gap-2 text-sm text-slate-300">
+                  <span class="text-emerald-500 mt-0.5 flex-shrink-0">✓</span>
+                  <span x-text="goal"></span>
+                </li>
+              </template>
+            </ul>
+          </div>
+
+          <!-- Non-Goals -->
+          <div class="spec-card">
+            <div class="section-title">Non-Goals</div>
+            <ul class="space-y-1.5">
+              <template x-for="(ng, i) in (spec?.overview?.non_goals || [])" :key="i">
+                <li class="flex items-start gap-2 text-sm text-slate-300">
+                  <span class="text-slate-500 mt-0.5 flex-shrink-0">✕</span>
+                  <span x-text="ng"></span>
+                </li>
+              </template>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Target Users -->
+        <div class="mt-4 flex flex-wrap gap-2 items-center">
+          <span class="section-title mb-0">Target Users:</span>
+          <template x-for="(user, i) in (spec?.overview?.target_users || [])" :key="i">
+            <span class="enum-tag" x-text="user"></span>
+          </template>
+        </div>
+      </section>
+
+      <!-- ── PARTIES ─────────────────────────────────────────────── -->
+      <section id="parties" class="mb-10" x-show="spec && (spec.parties || []).length > 0">
+        <div class="section-title">Parties</div>
+        <h2 class="text-lg font-semibold text-slate-100 mb-4">Actors &amp; Roles</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <template x-for="party in (spec?.parties || [])" :key="party.id">
+            <div class="spec-card">
+              <div class="flex items-center justify-between mb-2">
+                <div class="font-semibold text-sm text-slate-100" x-text="party.name"></div>
+                <span class="enum-tag font-mono" x-text="party.auth"></span>
+              </div>
+              <p class="text-xs text-slate-400 mb-3" x-text="party.description"></p>
+              <div>
+                <div class="section-title">Boundaries</div>
+                <p class="text-xs text-slate-300" x-text="party.boundaries"></p>
+              </div>
+            </div>
+          </template>
+        </div>
+      </section>
+
+      <!-- ── ARCHITECTURE ────────────────────────────────────────── -->
+      <section id="architecture" class="mb-10" x-show="spec">
+        <div class="section-title">Architecture</div>
+        <h2 class="text-lg font-semibold text-slate-100 mb-4">System Design</h2>
+
+        <!-- Components Table -->
+        <div class="spec-card mb-4">
+          <div class="section-title">Components</div>
+          <div class="overflow-x-auto">
+            <table class="spec-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Repo</th>
+                  <th>Responsibility</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="comp in (spec?.architecture?.components || [])" :key="comp.id">
+                  <tr>
+                    <td class="font-medium text-slate-200" x-text="comp.name"></td>
+                    <td><span class="enum-tag" x-text="comp.type"></span></td>
+                    <td class="font-mono text-xs text-slate-400" x-text="comp.repo"></td>
+                    <td class="text-slate-400" x-text="comp.responsibility"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Interactions Table -->
+        <div class="spec-card mb-4">
+          <div class="section-title">Interactions</div>
+          <div class="overflow-x-auto">
+            <table class="spec-table">
+              <thead>
+                <tr>
+                  <th>From</th>
+                  <th>To</th>
+                  <th>Protocol</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="(ix, i) in (spec?.architecture?.interactions || [])" :key="i">
+                  <tr>
+                    <td class="font-mono text-xs text-slate-300" x-text="ix.from"></td>
+                    <td class="font-mono text-xs text-slate-300" x-text="ix.to"></td>
+                    <td>
+                      <span class="enum-tag" x-text="ix.protocol"></span>
+                      <span x-show="ix.async" class="enum-tag ml-1" style="color:#a78bfa;border-color:#3b0764;background:#1a0f2e;">async</span>
+                    </td>
+                    <td class="text-slate-400" x-text="ix.description"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Decisions (ADRs) -->
+        <div x-show="(spec?.architecture?.decisions || []).length > 0">
+          <div class="section-title">Architecture Decisions (ADRs)</div>
+          <div class="space-y-3">
+            <template x-for="adr in (spec?.architecture?.decisions || [])" :key="adr.id">
+              <div class="spec-card">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="font-mono text-xs text-slate-500" x-text="adr.id"></span>
+                  <span class="font-semibold text-sm text-slate-100 flex-1" x-text="adr.title"></span>
+                  <span class="text-xs px-2 py-0.5 rounded-full font-medium"
+                    :class="{
+                      'adr-accepted': adr.status === 'accepted',
+                      'adr-superseded': adr.status === 'superseded',
+                      'adr-deprecated': adr.status === 'deprecated'
+                    }"
+                    x-text="adr.status"></span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <div class="section-title">Context</div>
+                    <p class="text-xs text-slate-400" x-text="adr.context"></p>
+                  </div>
+                  <div>
+                    <div class="section-title">Choice</div>
+                    <p class="text-xs text-slate-300" x-text="adr.choice"></p>
+                  </div>
+                </div>
+
+                <!-- Alternatives -->
+                <div x-show="(adr.alternatives || []).length > 0" class="mb-3">
+                  <div class="section-title">Alternatives Considered</div>
+                  <div class="space-y-1">
+                    <template x-for="(alt, ai) in (adr.alternatives || [])" :key="ai">
+                      <div class="flex items-start gap-2 text-xs">
+                        <span class="text-slate-500 mt-0.5 flex-shrink-0">✕</span>
+                        <div>
+                          <span class="text-slate-300 font-medium" x-text="alt.option"></span>
+                          <span class="text-slate-500 ml-1" x-text="'— ' + alt.rejected_because"></span>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+
+                <!-- Consequences -->
+                <div x-show="(adr.consequences || []).length > 0">
+                  <div class="section-title">Consequences</div>
+                  <ul class="space-y-1">
+                    <template x-for="(con, ci) in (adr.consequences || [])" :key="ci">
+                      <li class="text-xs text-slate-400 flex items-start gap-2">
+                        <span class="text-slate-600 mt-0.5 flex-shrink-0">›</span>
+                        <span x-text="con"></span>
+                      </li>
+                    </template>
+                  </ul>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── DATA MODEL ──────────────────────────────────────────── -->
+      <section id="data-model" class="mb-10" x-show="spec && (spec.data_model?.entities || []).length > 0">
+        <div class="section-title">Data Model</div>
+        <h2 class="text-lg font-semibold text-slate-100 mb-4">Domain Entities</h2>
+
+        <div class="space-y-4">
+          <template x-for="entity in (spec?.data_model?.entities || [])" :key="entity.id">
+            <div class="spec-card">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="font-mono font-bold text-sm text-emerald-400" x-text="entity.id"></span>
+              </div>
+              <p class="text-xs text-slate-400 mb-3" x-text="entity.description"></p>
+
+              <!-- Fields Table -->
+              <div class="overflow-x-auto mb-3">
+                <table class="spec-table">
+                  <thead>
+                    <tr>
+                      <th>Field</th>
+                      <th>Type</th>
+                      <th>Constraints</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="field in (entity.fields || [])" :key="field.name">
+                      <tr>
+                        <td class="font-mono text-xs text-slate-200" x-text="field.name"></td>
+                        <td>
+                          <span class="enum-tag" x-text="field.type"></span>
+                          <!-- Enum values -->
+                          <template x-if="(field.enum_values || []).length > 0">
+                            <span class="ml-1">
+                              <template x-for="(ev, evi) in (field.enum_values || [])" :key="evi">
+                                <span class="enum-tag" style="color:#a78bfa;" x-text="ev"></span>
+                              </template>
+                            </span>
+                          </template>
+                          <!-- Ref target -->
+                          <template x-if="field.ref_target">
+                            <span class="enum-tag ml-1" style="color:#10b981;" x-text="'→ ' + field.ref_target"></span>
+                          </template>
+                        </td>
+                        <td>
+                          <template x-for="(c, ci) in (field.constraints || [])" :key="ci">
+                            <span class="enum-tag" x-text="c"></span>
+                          </template>
+                          <span x-show="!(field.constraints || []).length" class="text-slate-600 text-xs">—</span>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Relationships -->
+              <div x-show="(entity.relationships || []).length > 0">
+                <div class="section-title">Relationships</div>
+                <div class="flex flex-wrap gap-2">
+                  <template x-for="(rel, ri) in (entity.relationships || [])" :key="ri">
+                    <div class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs">
+                      <span class="text-emerald-400 font-mono" x-text="rel.target"></span>
+                      <span class="text-slate-500 mx-1" x-text="rel.cardinality"></span>
+                      <span class="text-slate-400" x-text="rel.description"></span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </section>
+
+      <!-- ── API BOUNDARIES ─────────────────────────────────────── -->
+      <section id="api-boundaries" class="mb-10" x-show="spec && (spec.api_boundaries || []).length > 0">
+        <div class="section-title">API Boundaries</div>
+        <h2 class="text-lg font-semibold text-slate-100 mb-4">External Interfaces</h2>
+
+        <div class="space-y-4">
+          <template x-for="boundary in (spec?.api_boundaries || [])" :key="boundary.id">
+            <div class="spec-card">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="font-semibold text-sm text-slate-100" x-text="boundary.name"></span>
+                <span class="enum-tag" x-text="boundary.type"></span>
+                <span class="enum-tag"
+                  :style="boundary.direction === 'inbound' ? 'color:#4ade80;border-color:#14532d;background:#052e16;' : 'color:#60a5fa;border-color:#1e3a5f;background:#0c1929;'"
+                  x-text="boundary.direction"></span>
+              </div>
+
+              <div x-show="(boundary.endpoints || []).length > 0" class="overflow-x-auto">
+                <table class="spec-table">
+                  <thead>
+                    <tr>
+                      <th>Method</th>
+                      <th>Path</th>
+                      <th>Auth</th>
+                      <th>Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="ep in (boundary.endpoints || [])" :key="ep.id">
+                      <tr>
+                        <td>
+                          <span class="font-mono text-xs font-bold"
+                            :style="ep.method === 'GET' ? 'color:#4ade80;' : ep.method === 'POST' ? 'color:#60a5fa;' : ep.method === 'PUT' || ep.method === 'PATCH' ? 'color:#fbbf24;' : ep.method === 'DELETE' ? 'color:#f87171;' : 'color:#a78bfa;'"
+                            x-text="ep.method"></span>
+                        </td>
+                        <td class="font-mono text-xs text-slate-300" x-text="ep.path"></td>
+                        <td><span class="enum-tag" x-text="ep.auth"></span></td>
+                        <td class="text-slate-400" x-text="ep.description"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </template>
+        </div>
+      </section>
+
+      <!-- ── NFRs ────────────────────────────────────────────────── -->
+      <section id="nfrs" class="mb-10" x-show="spec && (spec.nfrs || []).length > 0">
+        <div class="section-title">Non-Functional Requirements</div>
+        <h2 class="text-lg font-semibold text-slate-100 mb-4">Quality Attributes</h2>
+
+        <div class="spec-card overflow-x-auto">
+          <table class="spec-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Category</th>
+                <th>Requirement</th>
+                <th>Metric</th>
+                <th>Target</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="nfr in (spec?.nfrs || [])" :key="nfr.id">
+                <tr>
+                  <td class="font-mono text-xs text-slate-400" x-text="nfr.id"></td>
+                  <td><span class="enum-tag" x-text="nfr.category"></span></td>
+                  <td class="text-slate-300" x-text="nfr.requirement"></td>
+                  <td class="text-slate-400 font-mono text-xs" x-text="nfr.metric"></td>
+                  <td class="text-emerald-400 font-mono text-xs font-semibold" x-text="nfr.target"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ── TECHNICAL CONSTRAINTS ──────────────────────────────── -->
+      <section id="technical-constraints" class="mb-10" x-show="spec && (spec.technical_constraints || []).length > 0">
+        <div class="section-title">Technical Constraints</div>
+        <h2 class="text-lg font-semibold text-slate-100 mb-4">Hard Limits</h2>
+
+        <div class="spec-card overflow-x-auto">
+          <table class="spec-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Category</th>
+                <th>Constraint</th>
+                <th>Impact</th>
+                <th>Source</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="tc in (spec?.technical_constraints || [])" :key="tc.id">
+                <tr>
+                  <td class="font-mono text-xs text-slate-400" x-text="tc.id"></td>
+                  <td><span class="enum-tag" x-text="tc.category"></span></td>
+                  <td class="text-slate-300" x-text="tc.constraint"></td>
+                  <td class="text-slate-400" x-text="tc.impact"></td>
+                  <td class="text-xs text-slate-500" x-text="tc.source"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ── STORIES ─────────────────────────────────────────────── -->
+      <section id="stories" class="mb-10" x-show="spec && (spec.stories || []).length > 0">
+        <div class="section-title">Stories</div>
+        <h2 class="text-lg font-semibold text-slate-100 mb-4">
+          User Stories
+          <span class="text-sm font-normal text-slate-400 ml-2" x-text="'(' + (spec?.stories || []).length + ')'"></span>
+        </h2>
+
+        <div class="space-y-3">
+          <template x-for="story in (spec?.stories || [])" :key="story.id">
+            <div class="spec-card">
+              <!-- Header row -->
+              <div class="flex flex-wrap items-center gap-2 mb-2">
+                <span class="font-mono text-xs font-bold text-slate-400" x-text="story.id"></span>
+                <!-- Priority pill -->
+                <span :class="{
+                  'pill-critical': story.priority === 'critical',
+                  'pill-high': story.priority === 'high',
+                  'pill-medium': story.priority === 'medium',
+                  'pill-low': story.priority === 'low'
+                }" x-text="story.priority || 'medium'"></span>
+                <!-- Type tag -->
+                <span class="enum-tag" x-show="story.type === 'spike'" style="color:#a78bfa;border-color:#3b0764;background:#1a0f2e;">spike</span>
+                <!-- Complexity tag -->
+                <span class="enum-tag" x-show="story.estimated_complexity" x-text="story.estimated_complexity"></span>
+                <!-- Repo tag -->
+                <span class="enum-tag" x-show="story.repo" style="color:#60a5fa;border-color:#1e3a5f;background:#0c1929;" x-text="story.repo"></span>
+                <!-- Party -->
+                <span class="enum-tag" x-show="story.party" style="color:#a78bfa;border-color:#3b0764;background:#1a0f2e;" x-text="story.party"></span>
+              </div>
+
+              <!-- Story statement -->
+              <div x-show="story.statement" class="text-sm text-slate-200 mb-3">
+                <span class="text-slate-500">As a </span><span class="text-slate-300" x-text="story.statement?.as_a"></span>
+                <span class="text-slate-500">, I want to </span><span class="text-slate-200 font-medium" x-text="story.statement?.i_want"></span>
+                <span class="text-slate-500"> so that </span><span class="text-slate-300" x-text="story.statement?.so_that"></span>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Acceptance Criteria -->
+                <div x-show="(story.acceptance_criteria || []).length > 0">
+                  <div class="section-title">Acceptance Criteria</div>
+                  <ul class="space-y-1">
+                    <template x-for="(ac, aci) in (story.acceptance_criteria || [])" :key="aci">
+                      <li class="flex items-start gap-2 text-xs text-slate-300">
+                        <span class="text-emerald-600 mt-0.5 flex-shrink-0">›</span>
+                        <span x-text="ac"></span>
+                      </li>
+                    </template>
+                  </ul>
+                </div>
+
+                <!-- Dependencies -->
+                <div x-show="(story.dependencies || []).length > 0">
+                  <div class="section-title">Dependencies</div>
+                  <div class="flex flex-wrap gap-1">
+                    <template x-for="dep in (story.dependencies || [])" :key="dep">
+                      <span class="enum-tag font-mono" x-text="dep"></span>
+                    </template>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </section>
+
+      <!-- ── SPIKE FINDINGS ──────────────────────────────────────── -->
+      <section id="spike-findings" class="mb-10" x-show="spec && (spec.spike_findings || []).length > 0">
+        <div class="section-title">Spike Findings</div>
+        <h2 class="text-lg font-semibold text-slate-100 mb-4">Research Outcomes</h2>
+
+        <div class="space-y-3">
+          <template x-for="sf in (spec?.spike_findings || [])" :key="sf.story_id">
+            <div class="spec-card">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="font-mono text-xs text-slate-400" x-text="sf.story_id"></span>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                <div>
+                  <div class="section-title">Question</div>
+                  <p class="text-xs text-slate-300" x-text="sf.question"></p>
+                </div>
+                <div>
+                  <div class="section-title">Finding</div>
+                  <p class="text-xs text-slate-400" x-text="sf.finding"></p>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <div class="section-title">Decision</div>
+                <p class="text-xs text-emerald-300" x-text="sf.decision"></p>
+              </div>
+
+              <div x-show="sf.evidence" class="mb-2">
+                <div class="section-title">Evidence</div>
+                <p class="text-xs text-slate-500 font-mono" x-text="sf.evidence"></p>
+              </div>
+
+              <div x-show="(sf.impacts || []).length > 0">
+                <div class="section-title">Impacts</div>
+                <div class="flex flex-wrap gap-1">
+                  <template x-for="imp in (sf.impacts || [])" :key="imp">
+                    <span class="enum-tag font-mono" x-text="imp"></span>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </section>
+
+      <!-- ── OPEN QUESTIONS ──────────────────────────────────────── -->
+      <section id="open-questions" class="mb-10" x-show="spec && (spec.open_questions || []).length > 0">
+        <div class="section-title">Open Questions</div>
+        <h2 class="text-lg font-semibold text-slate-100 mb-4">
+          <span class="text-amber-400">⚠</span> Unresolved Items
+        </h2>
+
+        <div class="space-y-3">
+          <template x-for="oq in (spec?.open_questions || [])" :key="oq.id">
+            <div class="oq-card">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="font-mono text-xs text-amber-500" x-text="oq.id"></span>
+                <span class="text-sm font-medium text-slate-200" x-text="oq.question"></span>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                <div>
+                  <div class="section-title">Context</div>
+                  <p class="text-xs text-slate-400" x-text="oq.context"></p>
+                </div>
+                <div x-show="oq.proposed_answer">
+                  <div class="section-title">Proposed Answer</div>
+                  <p class="text-xs text-slate-300" x-text="oq.proposed_answer"></p>
+                </div>
+              </div>
+
+              <div x-show="(oq.blocks || []).length > 0">
+                <div class="section-title">Blocks</div>
+                <div class="flex flex-wrap gap-1">
+                  <template x-for="blk in (oq.blocks || [])" :key="blk">
+                    <span class="enum-tag" style="color:#fbbf24;border-color:#78350f;background:#451a03;" x-text="blk"></span>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </section>
+
+      <!-- Bottom padding -->
+      <div class="h-16"></div>
+    </main>
+  </div>
+
+  <script>
+    function specApp() {
+      return {
+        spec: null,
+        async load() {
+          try {
+            const res = await fetch('/api/spec');
+            if (res.ok) this.spec = await res.json();
+          } catch (e) {
+            console.error('Failed to load spec:', e);
+          }
+          loadNav();
+        }
+      };
+    }
+  </script>
+</body>
+</html>
