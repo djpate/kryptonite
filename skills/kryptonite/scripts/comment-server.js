@@ -519,7 +519,10 @@ function injectUI(html) {
     --sidebar-text: #94a3b8 !important;
     --sidebar-text-active: #e2e8f0 !important;
   }
-  body { background: #0f172a !important; color: #e2e8f0 !important; padding-top: 56px; }
+  body { background: #0f172a !important; color: #e2e8f0 !important; }
+  #nav-container { position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; z-index: 9999 !important; grid-column: 1 / -1 !important; }
+  aside.sidebar { padding-top: 56px !important; height: 100vh !important; box-sizing: border-box !important; }
+  main { padding-top: 56px !important; }
   h1,h2,h3,h4,h5,h6 { color: #f1f5f9 !important; }
   p, li, dd, dt, span, strong { color: #cbd5e1 !important; }
   .muted, .muted * { color: #94a3b8 !important; }
@@ -692,6 +695,48 @@ const server = http.createServer((req, res) => {
     } catch {
       res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
       res.end(JSON.stringify([]));
+    }
+    return;
+  }
+
+  // ─── API: spec.json ──────────────────────────────────────────────────────────
+  if (url.pathname === "/api/spec" && req.method === "GET") {
+    const epicDir = getEpicDir();
+    if (!epicDir) {
+      res.writeHead(404, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ error: "No epic directory" }));
+      return;
+    }
+    const specJsonPath = path.join(epicDir, "spec.json");
+    try {
+      const data = fs.readFileSync(specJsonPath, "utf-8");
+      JSON.parse(data);
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(data);
+    } catch {
+      res.writeHead(404, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ error: "spec.json not found" }));
+    }
+    return;
+  }
+
+  // ─── API: plan.json ──────────────────────────────────────────────────────────
+  if (url.pathname === "/api/plan" && req.method === "GET") {
+    const epicDir = getEpicDir();
+    if (!epicDir) {
+      res.writeHead(404, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ error: "No epic directory" }));
+      return;
+    }
+    const planJsonPath = path.join(epicDir, "plan.json");
+    try {
+      const data = fs.readFileSync(planJsonPath, "utf-8");
+      JSON.parse(data);
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(data);
+    } catch {
+      res.writeHead(404, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ error: "plan.json not found" }));
     }
     return;
   }
@@ -983,6 +1028,13 @@ const server = http.createServer((req, res) => {
 
   // Plan
   if (url.pathname === "/plan") {
+    const epicDir = getEpicDir();
+    // JSON mode: serve the SPA renderer
+    if (epicDir && fs.existsSync(path.join(epicDir, "plan.json"))) {
+      const spaPath = path.join(UI_DIR, "plan.html");
+      if (serveStaticFile(spaPath, res)) return;
+    }
+    // HTML mode: legacy
     if (!planPath) { res.writeHead(404); res.end("Plan not generated yet"); return; }
     try {
       const html = fs.readFileSync(planPath, "utf-8");
@@ -1031,7 +1083,14 @@ const server = http.createServer((req, res) => {
       if (serveStaticFile(indexPath, res)) return;
     }
 
-    // Fall back to spec
+    // JSON mode: serve the SPA renderer
+    const epicDir = getEpicDir();
+    if (epicDir && fs.existsSync(path.join(epicDir, "spec.json"))) {
+      const spaPath = path.join(UI_DIR, "spec.html");
+      if (serveStaticFile(spaPath, res)) return;
+    }
+
+    // HTML mode: legacy
     if (!specPath) { res.writeHead(404); res.end("Spec not generated yet"); return; }
     try {
       const html = fs.readFileSync(specPath, "utf-8");
