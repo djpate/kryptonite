@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kryptonite — Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.min.css" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+  <script src="/ui/assets/app.js"></script>
+  <link rel="stylesheet" href="/ui/assets/style.css">
+</head>
+<body x-data="dashboardPage()" x-init="init()">
+  <div id="nav-container"></div>
+
+  <div class="max-w-6xl mx-auto p-6" x-show="$store.app.state" style="margin-top: 56px;">
+
+    <!-- Header -->
+    <h2 class="text-lg font-bold text-slate-100 mb-4">Execution Dashboard</h2>
+
+    <!-- Wave Sections -->
+    <template x-for="wave in ($store.app.state?.waves || [])" :key="wave.id">
+      <div class="bg-slate-800 border border-slate-700 rounded-lg p-4 mb-4">
+
+        <!-- Wave Header -->
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-semibold text-slate-200" x-text="wave.name"></span>
+            <span class="badge badge-xs"
+              :class="{
+                'badge-success': wave.status === 'completed',
+                'badge-warning': wave.status === 'in_progress',
+                'badge-ghost': wave.status === 'pending' || !wave.status
+              }"
+              x-text="wave.status || 'pending'"></span>
+          </div>
+          <span class="text-xs text-slate-400" x-text="(wave.stories || []).filter(sid => ($store.app.state?.stories || []).find(s => s.id === sid && s.status === 'done')).length + '/' + (wave.stories || []).length"></span>
+        </div>
+
+        <!-- Progress Bar -->
+        <progress class="progress progress-success w-full h-1.5 mb-3"
+          :value="(wave.stories || []).filter(sid => ($store.app.state?.stories || []).find(s => s.id === sid && s.status === 'done')).length"
+          :max="(wave.stories || []).length"></progress>
+
+        <!-- Story Table -->
+        <div class="overflow-x-auto">
+          <table class="table table-xs">
+            <thead>
+              <tr class="text-slate-400">
+                <th>ID</th>
+                <th>Story</th>
+                <th>Status</th>
+                <th>Priority</th>
+                <th>DOD</th>
+                <th>Commit</th>
+                <th>Agent</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="storyId in (wave.stories || [])" :key="storyId">
+                <tr x-data="{ story: $store.app.state?.stories?.find(s => s.id === storyId) }">
+                  <td class="font-mono text-[11px]" x-text="storyId"></td>
+                  <td class="max-w-[200px] truncate" x-text="story?.statement?.i_want || story?.title || '—'"></td>
+                  <td>
+                    <span class="badge badge-xs"
+                      :class="{
+                        'badge-success': story?.status === 'done',
+                        'badge-warning': story?.status === 'in_progress',
+                        'badge-info': story?.status === 'in_review' || story?.status === 'qa_validation',
+                        'badge-ghost': story?.status === 'pending' || !story?.status
+                      }"
+                      x-text="story?.status || 'pending'"></span>
+                  </td>
+                  <td>
+                    <span class="badge badge-xs" :class="'badge-' + (story?.priority || 'medium')" x-text="story?.priority || 'medium'"></span>
+                  </td>
+                  <td class="text-xs text-slate-400" x-text="story?.dod_validation ? (story.dod_validation.items_passed + '/' + story.dod_validation.items_total) : '—'"></td>
+                  <td>
+                    <span class="font-mono text-xs text-blue-400" x-show="story?.commit_sha" x-text="(story?.commit_sha || '').substring(0, 7)"></span>
+                    <span x-show="!story?.commit_sha" class="text-slate-500">—</span>
+                  </td>
+                  <td class="text-xs text-slate-400" x-text="story?.implemented_by || '—'"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </template>
+
+  </div>
+
+  <script>
+    function dashboardPage() {
+      return {
+        async init() {
+          await this.$store.app.load();
+          setInterval(async () => {
+            try {
+              const state = await fetch('/api/state').then(r => r.json());
+              this.$store.app.state = state;
+            } catch {}
+          }, 10000);
+        }
+      };
+    }
+  </script>
+</body>
+</html>
