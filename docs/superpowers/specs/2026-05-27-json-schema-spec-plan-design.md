@@ -392,7 +392,7 @@ Comments stored with path like `spec.architecture.decisions[0]` or `plan.waves[2
 4. Fail → structured error array fed back → retry (max 3)
 5. Pass → save to epic directory
 6. Plan Critic agent reviews
-7. `state.json` updated: stories get `wave` and `parallel_group` fields copied from plan
+7. Main session copies `wave` and `parallel_group` from plan.json into each story in `state.json` (executor reads state.json during Phase 12)
 
 ### Phase Gate Updates
 
