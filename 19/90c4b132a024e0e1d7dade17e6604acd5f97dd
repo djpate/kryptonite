@@ -1,0 +1,19 @@
+skills/kryptonite/references/plan-schema.json
+  s_2c11a8e5c76827::t_9377a1a32d3413 1-441
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "1990c4b132a024e0e1d7dade17e6604acd5f97dd",
+  "prompts": {},
+  "sessions": {
+    "s_2c11a8e5c76827": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "db628442-ef2c-4949-bbf0-754b31a59422",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
