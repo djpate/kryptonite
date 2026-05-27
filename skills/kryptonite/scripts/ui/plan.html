@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kryptonite — Plan</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.min.css" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+  <script src="/ui/assets/app.js"></script>
+  <link rel="stylesheet" href="/ui/assets/style.css">
+  <style>
+    /* Plan-specific design tokens */
+    .plan-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 0.75rem;
+    }
+
+    .section-title {
+      color: #10b981;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 0.1rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.65rem;
+      font-weight: 600;
+    }
+
+    .pill-critical {
+      background: rgba(239,68,68,0.15);
+      color: #fca5a5;
+    }
+
+    .pill-high {
+      background: rgba(251,191,36,0.15);
+      color: #fde68a;
+    }
+
+    .pill-medium {
+      background: rgba(59,130,246,0.15);
+      color: #93c5fd;
+    }
+
+    .pill-low {
+      background: rgba(148,163,184,0.15);
+      color: #94a3b8;
+    }
+
+    .pill-effort {
+      background: rgba(16,185,129,0.15);
+      color: #6ee7b7;
+    }
+
+    .enum-tag {
+      background: #334155;
+      padding: 0.1rem 0.4rem;
+      border-radius: 0.25rem;
+      font-size: 0.7rem;
+      color: #94a3b8;
+      display: inline-block;
+    }
+
+    .wave-section {
+      border-left: 3px solid #10b981;
+      margin-bottom: 1.5rem;
+      padding-left: 1rem;
+    }
+
+    .pg-block {
+      background: rgba(16,185,129,0.05);
+      border: 1px solid #1e3a2e;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .task-item {
+      padding: 0.4rem 0;
+      border-bottom: 1px solid #1e293b;
+      font-size: 0.75rem;
+    }
+
+    .task-item:last-child {
+      border-bottom: none;
+    }
+
+    .demo-block {
+      background: rgba(16,185,129,0.08);
+      border-left: 3px solid #10b981;
+      padding: 0.75rem 1rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-top: 0.75rem;
+    }
+
+    .risk-card {
+      border-left: 3px solid;
+    }
+
+    .risk-low {
+      border-left-color: #10b981;
+    }
+
+    .risk-medium {
+      border-left-color: #f59e0b;
+    }
+
+    .risk-high {
+      border-left-color: #ef4444;
+    }
+
+    /* Sidebar nav links */
+    .plan-nav-link {
+      display: block;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.75rem;
+      color: #64748b;
+      border-radius: 0.375rem;
+      text-decoration: none;
+      transition: color 0.15s ease, background 0.15s ease;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .plan-nav-link:hover {
+      color: #e2e8f0;
+      background: rgba(255,255,255,0.05);
+    }
+
+    .plan-nav-link.wave-link {
+      font-size: 0.7rem;
+      padding-left: 1.25rem;
+    }
+
+    /* Smooth scroll offset */
+    html {
+      scroll-behavior: smooth;
+    }
+
+    section[id] {
+      scroll-margin-top: 72px;
+    }
+  </style>
+</head>
+<body x-data="planApp()" x-init="load()" style="background: #0f172a; color: #e2e8f0;">
+  <div id="nav-container"></div>
+
+  <!-- Loading State -->
+  <div x-show="!plan" class="flex items-center justify-center h-screen" style="margin-top: 56px;">
+    <div class="text-center">
+      <div class="loading loading-spinner loading-lg text-emerald-500 mb-4"></div>
+      <p class="text-slate-400 text-sm">Loading plan...</p>
+    </div>
+  </div>
+
+  <!-- Main Layout -->
+  <div x-show="plan" class="flex" style="margin-top: 56px; min-height: calc(100vh - 56px);">
+
+    <!-- Sticky Sidebar -->
+    <aside class="hidden lg:block w-56 flex-shrink-0 sticky top-14 h-[calc(100vh-56px)] overflow-y-auto border-r border-slate-800 py-4 px-2">
+      <nav class="space-y-0.5">
+        <a href="#summary" class="plan-nav-link">Summary</a>
+        <div class="section-title px-3 pt-3 pb-1">Waves</div>
+        <template x-for="wave in (plan?.waves || [])" :key="wave.id">
+          <a :href="'#' + wave.id" class="plan-nav-link wave-link" x-text="'Wave ' + wave.sequence + ' — ' + wave.name"></a>
+        </template>
+        <a href="#critical-path" class="plan-nav-link pt-2">Critical Path</a>
+        <a href="#parallel-strategy" class="plan-nav-link">Parallel Strategy</a>
+        <a href="#risks" class="plan-nav-link" x-show="(plan?.risks || []).length > 0">Risks</a>
+      </nav>
+
+      <!-- Meta Info -->
+      <template x-if="plan">
+        <div class="mt-6 px-2 space-y-2">
+          <div>
+            <div class="section-title">Epic</div>
+            <div class="text-xs font-mono text-slate-400" x-text="plan.epic_slug"></div>
+          </div>
+          <div>
+            <div class="section-title">Spec Version</div>
+            <div class="text-xs font-mono text-slate-400" x-text="plan.spec_version"></div>
+          </div>
+          <div>
+            <div class="section-title">Generated</div>
+            <div class="text-xs text-slate-500" x-text="plan.generated_at ? new Date(plan.generated_at).toLocaleDateString() : ''"></div>
+          </div>
+        </div>
+      </template>
+    </aside>
+
+    <!-- Content Area -->
+    <main class="flex-1 overflow-x-hidden px-4 lg:px-8 py-6 max-w-5xl">
+
+      <!-- ── SUMMARY ─────────────────────────────────────────────── -->
+      <section id="summary" class="mb-10" x-show="plan">
+        <div class="section-title">Summary</div>
+        <h1 class="text-2xl font-bold text-slate-100 mb-4" x-text="plan?.epic_slug"></h1>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <!-- Waves -->
+          <div class="plan-card p-4 text-center">
+            <div class="text-2xl font-bold text-emerald-400" x-text="plan?.summary?.total_waves"></div>
+            <div class="text-xs text-slate-400 mt-1">Waves</div>
+          </div>
+          <!-- Stories -->
+          <div class="plan-card p-4 text-center">
+            <div class="text-2xl font-bold text-slate-100" x-text="plan?.summary?.total_stories"></div>
+            <div class="text-xs text-slate-400 mt-1">Stories</div>
+          </div>
+          <!-- Critical Depth -->
+          <div class="plan-card p-4 text-center">
+            <div class="text-2xl font-bold text-amber-400" x-text="plan?.summary?.critical_path_depth"></div>
+            <div class="text-xs text-slate-400 mt-1">Critical Depth</div>
+          </div>
+          <!-- Est. Duration -->
+          <div class="plan-card p-4 text-center">
+            <div class="text-lg font-bold text-slate-300" x-text="plan?.summary?.estimated_duration"></div>
+            <div class="text-xs text-slate-400 mt-1">Est. Duration</div>
+          </div>
+        </div>
+
+        <!-- Priority Breakdown -->
+        <div class="plan-card p-3 flex flex-wrap items-center gap-2">
+          <span class="text-xs text-slate-500 mr-1">Priority:</span>
+          <template x-if="plan?.summary?.priority_breakdown?.critical > 0">
+            <span class="pill pill-critical" x-text="plan.summary.priority_breakdown.critical + ' critical'"></span>
+          </template>
+          <template x-if="plan?.summary?.priority_breakdown?.high > 0">
+            <span class="pill pill-high" x-text="plan.summary.priority_breakdown.high + ' high'"></span>
+          </template>
+          <template x-if="plan?.summary?.priority_breakdown?.medium > 0">
+            <span class="pill pill-medium" x-text="plan.summary.priority_breakdown.medium + ' medium'"></span>
+          </template>
+          <template x-if="plan?.summary?.priority_breakdown?.low > 0">
+            <span class="pill pill-low" x-text="plan.summary.priority_breakdown.low + ' low'"></span>
+          </template>
+        </div>
+      </section>
+
+      <!-- ── WAVES ───────────────────────────────────────────────── -->
+      <section id="waves" class="mb-10" x-show="plan && (plan.waves || []).length > 0">
+        <div class="section-title">Waves</div>
+        <h2 class="text-lg font-semibold text-slate-100 mb-4">Execution Waves</h2>
+
+        <template x-for="wave in (plan?.waves || [])" :key="wave.id">
+          <div class="wave-section" :id="wave.id">
+            <!-- Wave Header -->
+            <div class="flex flex-wrap items-center gap-3 mb-2">
+              <h3 class="text-base font-bold text-slate-100" x-text="'Wave ' + wave.sequence + ' — ' + wave.name"></h3>
+              <span class="enum-tag" style="color:#6ee7b7;background:rgba(16,185,129,0.12);border:1px solid #1e3a2e;" x-text="wave.estimated_duration"></span>
+              <template x-if="(wave.prerequisites || []).length > 0">
+                <div class="flex items-center gap-1">
+                  <span class="text-xs text-slate-500">after:</span>
+                  <template x-for="prereq in (wave.prerequisites || [])" :key="prereq">
+                    <span class="enum-tag" x-text="prereq"></span>
+                  </template>
+                </div>
+              </template>
+            </div>
+
+            <!-- Theme -->
+            <p class="text-sm text-slate-400 mb-4" x-text="wave.theme"></p>
+
+            <!-- Parallel Groups -->
+            <template x-for="pg in (wave.parallel_groups || [])" :key="pg.id">
+              <div class="pg-block">
+                <!-- Group Header -->
+                <div class="flex flex-wrap items-center gap-2 mb-2">
+                  <div class="section-title mb-0" x-text="pg.name"></div>
+                  <template x-if="pg.blocking">
+                    <span class="pill" style="background:rgba(239,68,68,0.15);color:#fca5a5;">blocking</span>
+                  </template>
+                  <span class="text-xs text-slate-500" x-text="pg.domain"></span>
+                  <span class="enum-tag text-xs font-mono ml-auto" x-text="pg.id"></span>
+                </div>
+
+                <!-- Story IDs -->
+                <div class="flex flex-wrap gap-1 mb-3">
+                  <template x-for="storyId in (pg.stories || [])" :key="storyId">
+                    <span class="enum-tag font-mono" x-text="storyId"></span>
+                  </template>
+                </div>
+
+                <!-- Tasks -->
+                <div x-show="(pg.tasks || []).length > 0">
+                  <template x-for="task in (pg.tasks || [])" :key="task.id">
+                    <div class="task-item">
+                      <div class="flex flex-wrap items-start gap-2">
+                        <!-- Task ID + Effort -->
+                        <span class="enum-tag font-mono flex-shrink-0" x-text="task.id"></span>
+                        <span class="pill pill-effort flex-shrink-0" x-text="task.effort"></span>
+                        <!-- Description -->
+                        <span class="text-slate-300 flex-1" x-text="task.description"></span>
+                      </div>
+                      <!-- File Paths -->
+                      <div x-show="(task.file_paths || []).length > 0" class="mt-1.5 flex flex-wrap gap-1">
+                        <template x-for="(fp, fi) in (task.file_paths || [])" :key="fi">
+                          <span class="font-mono text-xs" style="color:#10b981;" x-text="fp"></span>
+                        </template>
+                      </div>
+                      <!-- Depends On -->
+                      <div x-show="(task.depends_on || []).length > 0" class="mt-1 flex items-center gap-1">
+                        <span class="text-xs text-slate-600">needs:</span>
+                        <template x-for="dep in (task.depends_on || [])" :key="dep">
+                          <span class="enum-tag font-mono text-xs" x-text="dep"></span>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+
+            <!-- Demo Checkpoint -->
+            <template x-if="wave.demo_checkpoint">
+              <div class="demo-block">
+                <div class="section-title mb-1">Demo Checkpoint</div>
+                <p class="text-xs text-slate-300 mb-2" x-text="wave.demo_checkpoint.description"></p>
+                <!-- Validates -->
+                <div x-show="(wave.demo_checkpoint.validates || []).length > 0" class="flex flex-wrap gap-1 mb-2">
+                  <span class="text-xs text-slate-500 self-center">validates:</span>
+                  <template x-for="storyId in (wave.demo_checkpoint.validates || [])" :key="storyId">
+                    <span class="enum-tag font-mono" x-text="storyId"></span>
+                  </template>
+                </div>
+                <!-- Criteria -->
+                <ul class="space-y-1">
+                  <template x-for="(criterion, ci) in (wave.demo_checkpoint.criteria || [])" :key="ci">
+                    <li class="flex items-start gap-2 text-xs text-slate-300">
+                      <span class="text-emerald-500 flex-shrink-0 mt-0.5">✓</span>
+                      <span x-text="criterion"></span>
+                    </li>
+                  </template>
+                </ul>
+              </div>
+            </template>
+
+            <!-- Post-Wave Validation -->
+            <template x-if="(wave.post_wave_validation || []).length > 0">
+              <div class="mt-3 pl-2">
+                <div class="section-title mb-1">Post-Wave Checks</div>
+                <div class="space-y-1">
+                  <template x-for="(check, chi) in (wave.post_wave_validation || [])" :key="chi">
+                    <div class="flex items-center gap-2 text-xs">
+                      <span class="text-slate-500 flex-shrink-0">›</span>
+                      <span class="text-slate-400 flex-1" x-text="check.check"></span>
+                      <code class="font-mono text-xs text-slate-500 bg-slate-900 px-1.5 py-0.5 rounded" x-text="check.command"></code>
+                      <span class="enum-tag" style="color:#4ade80;" x-text="'→ ' + check.expect"></span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+      </section>
+
+      <!-- ── CRITICAL PATH ───────────────────────────────────────── -->
+      <section id="critical-path" class="mb-10" x-show="plan && (plan.critical_path || []).length > 0">
+        <div class="section-title">Critical Path</div>
+        <h2 class="text-lg font-semibold text-slate-100 mb-4">Blocking Dependency Chain</h2>
+
+        <div class="plan-card p-4 mb-4">
+          <!-- Horizontal Flow -->
+          <div class="flex flex-wrap items-center gap-1 mb-4">
+            <template x-for="(cp, i) in (plan?.critical_path || [])" :key="cp.story_id">
+              <div class="flex items-center gap-1">
+                <span class="enum-tag font-mono font-bold" style="color:#fde68a;background:rgba(251,191,36,0.1);border-color:#92400e;" x-text="cp.story_id"></span>
+                <template x-if="i < (plan.critical_path.length - 1)">
+                  <span class="text-slate-600 text-sm">→</span>
+                </template>
+              </div>
+            </template>
+          </div>
+
+          <!-- Detail List -->
+          <div class="space-y-2">
+            <template x-for="cp in (plan?.critical_path || [])" :key="cp.story_id">
+              <div class="flex items-start gap-3 text-xs">
+                <span class="font-mono font-bold text-amber-300 flex-shrink-0 w-16" x-text="cp.story_id"></span>
+                <span class="enum-tag flex-shrink-0" x-text="cp.wave"></span>
+                <span class="text-slate-400 flex-1" x-text="cp.reason"></span>
+                <template x-if="cp.blocks">
+                  <div class="flex items-center gap-1 flex-shrink-0">
+                    <span class="text-slate-600 text-xs">blocks</span>
+                    <span class="enum-tag font-mono" style="color:#f87171;" x-text="cp.blocks"></span>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── PARALLEL STRATEGY ───────────────────────────────────── -->
+      <section id="parallel-strategy" class="mb-10" x-show="plan?.parallel_strategy">
+        <div class="section-title">Parallel Strategy</div>
+        <h2 class="text-lg font-semibold text-slate-100 mb-4">Execution Configuration</h2>
+
+        <div class="plan-card p-4 mb-4">
+          <div class="flex flex-wrap items-center gap-4 mb-4">
+            <div>
+              <div class="section-title">Max Concurrent Agents</div>
+              <span class="text-2xl font-bold text-emerald-400" x-text="plan?.parallel_strategy?.max_concurrent_agents"></span>
+            </div>
+            <div>
+              <div class="section-title">Worktree Strategy</div>
+              <span class="enum-tag" style="color:#a78bfa;background:rgba(139,92,246,0.1);border-color:#3b0764;" x-text="plan?.parallel_strategy?.worktree_strategy"></span>
+            </div>
+          </div>
+
+          <!-- File Conflict Rules -->
+          <div x-show="(plan?.parallel_strategy?.file_conflict_rules || []).length > 0">
+            <div class="section-title">File Conflict Rules</div>
+            <div class="space-y-2">
+              <template x-for="(rule, ri) in (plan?.parallel_strategy?.file_conflict_rules || [])" :key="ri">
+                <div class="flex items-start gap-3 text-xs py-1.5 border-b border-slate-800 last:border-0">
+                  <code class="font-mono" style="color:#10b981;" x-text="rule.pattern"></code>
+                  <span class="text-slate-500 flex-shrink-0">→</span>
+                  <span class="enum-tag flex-shrink-0" x-text="rule.exclusive_to"></span>
+                  <span class="text-slate-500 flex-1" x-text="rule.reason"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── RISKS ───────────────────────────────────────────────── -->
+      <section id="risks" class="mb-10" x-show="plan && (plan.risks || []).length > 0">
+        <div class="section-title">Risks</div>
+        <h2 class="text-lg font-semibold text-slate-100 mb-4">
+          Identified Risks
+          <span class="text-sm font-normal text-slate-400 ml-2" x-text="'(' + (plan?.risks || []).length + ')'"></span>
+        </h2>
+
+        <div class="space-y-3">
+          <template x-for="risk in (plan?.risks || [])" :key="risk.id">
+            <div class="plan-card p-4 risk-card"
+              :class="{
+                'risk-high': risk.impact === 'high',
+                'risk-medium': risk.impact === 'medium',
+                'risk-low': risk.impact === 'low'
+              }">
+              <!-- Header -->
+              <div class="flex flex-wrap items-center gap-2 mb-2">
+                <span class="font-mono text-xs font-bold text-slate-400" x-text="risk.id"></span>
+                <span class="enum-tag" x-text="risk.category"></span>
+                <!-- P/I pill -->
+                <span class="pill"
+                  :class="{
+                    'pill-high': risk.impact === 'high',
+                    'pill-medium': risk.impact === 'medium',
+                    'pill-low': risk.impact === 'low'
+                  }">
+                  <span x-text="'P: ' + risk.probability"></span>
+                  <span class="opacity-50 mx-0.5">·</span>
+                  <span x-text="'I: ' + risk.impact"></span>
+                </span>
+              </div>
+
+              <!-- Description -->
+              <p class="text-sm text-slate-300 mb-2" x-text="risk.description"></p>
+
+              <!-- Mitigation -->
+              <div class="mb-2">
+                <div class="section-title">Mitigation</div>
+                <p class="text-xs text-emerald-300" x-text="risk.mitigation"></p>
+              </div>
+
+              <!-- Affected Stories -->
+              <div x-show="(risk.affected_stories || []).length > 0">
+                <div class="section-title">Affected Stories</div>
+                <div class="flex flex-wrap gap-1">
+                  <template x-for="storyId in (risk.affected_stories || [])" :key="storyId">
+                    <span class="enum-tag font-mono" x-text="storyId"></span>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </section>
+
+      <!-- Bottom padding -->
+      <div class="h-16"></div>
+    </main>
+  </div>
+
+  <script>
+    function planApp() {
+      return {
+        plan: null,
+        async load() {
+          try {
+            const res = await fetch('/api/plan');
+            if (res.ok) this.plan = await res.json();
+          } catch (e) {
+            console.error('Failed to load plan:', e);
+          }
+          loadNav();
+        }
+      };
+    }
+  </script>
+</body>
+</html>
