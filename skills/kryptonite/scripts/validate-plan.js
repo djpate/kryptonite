@@ -259,6 +259,27 @@ function semanticChecks() {
       }
     }
   }
+
+  // user_journeys: stories_covered must reference stories assigned to the same wave
+  for (const wave of plan.waves) {
+    const waveStories = new Set();
+    for (const pg of wave.parallel_groups) {
+      for (const sid of pg.stories) waveStories.add(sid);
+    }
+    for (const journey of (wave.user_journeys || [])) {
+      for (const storyId of journey.stories_covered) {
+        if (!waveStories.has(storyId)) {
+          errors.push({
+            layer: "semantic",
+            path: `$.waves[${plan.waves.indexOf(wave)}].user_journeys`,
+            rule: "journey_story_coverage",
+            message: `User journey '${journey.id}' covers story '${storyId}' which is not in wave '${wave.id}'`,
+            suggestion: `Stories in this wave: ${[...waveStories].join(", ")}`,
+          });
+        }
+      }
+    }
+  }
 }
 
 if (spec.stories && plan.waves) {
