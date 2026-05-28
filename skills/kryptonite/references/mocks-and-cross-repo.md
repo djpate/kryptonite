@@ -46,9 +46,20 @@ Mark each visual story with `"mock_phase": "foundational"` or `"mock_phase": "de
 
 ### Mock storage
 
+Mock **files** live on disk:
+
 - Approved mocks: `<skill-path>/data/{PROJECT}/{EPIC}/mocks/{story-id}.html`
 - Pre-approval variants: `<skill-path>/data/{PROJECT}/{EPIC}/mocks/{story-id}-option-a.html`
 - Screenshots: `<skill-path>/data/{PROJECT}/{EPIC}/mocks/{story-id}.png`
+
+Per-story mock **state** is recorded back onto the story in `state.json` (all defined in `references/story-schema.json`):
+
+- `has_mock` (bool), `mock_phase` (`foundational` | `detail`), `mock_approved` (bool) — the gate-checked trio.
+- `mock_path` (string) — repo-relative path to the approved mock HTML (also emitted in the Designer's Report Format).
+- `mock_options` (array, e.g. `["a","b","c"]`) and `mock_choice` (string) — the option set shown in `/compare` and the one the user picked.
+- `design_notes` (string) — free-form notes on the chosen content-area treatment; detail Designers and the Phase 10 spec generator inherit it.
+
+All eight are permitted by `story-schema.json` (which is `additionalProperties: false`). If you add a new per-story mock field, add it to the schema in the same change or the Phase 9 gate will reject it.
 
 See `agents/designer.md` for the per-mock production protocol (same-page constraint, mock inheritance, design direction state).
 

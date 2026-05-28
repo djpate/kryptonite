@@ -163,6 +163,23 @@
       "default": false,
       "description": "Whether the mock for this story has been approved by the user."
     },
+    "mock_path": {
+      "type": "string",
+      "description": "Repo-relative path to the approved mock HTML for this story (e.g. 'mocks/US-058.html'). Written by the Phase 8 mock workflow when a mock is approved."
+    },
+    "mock_options": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Identifiers of the option variants generated for this mock (e.g. ['a','b','c']) shown in the /compare view. Recorded by the Phase 8 mock workflow."
+    },
+    "mock_choice": {
+      "type": "string",
+      "description": "Which mock option the user selected (e.g. 'a'). Recorded by the Phase 8 mock workflow."
+    },
+    "design_notes": {
+      "type": "string",
+      "description": "Free-form notes captured during mock approval describing the chosen layout/treatment for this story's content area. Inherited by Designer agents and the spec generator."
+    },
     "amended": {
       "type": "boolean",
       "default": false,

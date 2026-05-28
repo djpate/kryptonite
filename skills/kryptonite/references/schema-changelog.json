@@ -52,6 +52,12 @@
           "target": "scripts/validate-gate.js",
           "field": "version-aware schema loading",
           "description": "Validator now loads version-suffixed supplemental gate schemas (e.g. 03.0.6.0.json) on top of the base gate when the epic's kryptonite_version is at or above the suffix. Errors from supplementals are labeled SCHEMA (vX.Y.Z+) for clarity."
+        },
+        {
+          "type": "added",
+          "target": "references/story-schema.json",
+          "field": "stories[*].mock_path, mock_options, mock_choice, design_notes",
+          "description": "Canonicalizes the per-story mock working-data the Phase 8 mock workflow already writes into state.json. mock_path (string, repo-relative path to the approved mock HTML — already emitted by agents/designer.md's Report Format and already allowed by wave-gate-report-schema.json), mock_options (array of option identifiers shown in /compare, e.g. ['a','b','c']), mock_choice (string, the selected option), design_notes (string, free-form notes on the chosen content-area treatment, inherited by detail Designers and the spec generator). BUGFIX: story-schema.json sets additionalProperties:false, so before this entry these four fields failed the Phase 9 gate even though the skill's own designer agent produces them — an internal inconsistency. No migration needed: the fields were already present in 0.6.0 epics' state.json and are now simply permitted."
         }
       ],
       "migration": {
