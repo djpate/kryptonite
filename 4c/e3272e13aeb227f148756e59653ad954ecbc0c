@@ -1,0 +1,57 @@
+skills/kryptonite/agents/orchestrator.md
+  s_2c11a8e5c76827::t_052ed5361ff198 3,6,8
+  s_2c11a8e5c76827::t_6602bb86bb5b78 16
+skills/kryptonite/references/execution-protocol.md
+  s_2c11a8e5c76827::t_5b26b0ef3a6915 16
+  s_2c11a8e5c76827::t_d186080fb6aae8 1,3
+skills/kryptonite/scripts/phase-gates/12.json
+  s_2c11a8e5c76827::t_0679fcbfd91f44 4,25-28,31-33,35,46
+skills/kryptonite/scripts/ui/dashboard.html
+  s_2c11a8e5c76827::t_11d64cf25089fa 46
+  s_2c11a8e5c76827::t_0555b90faddec6 86
+  s_2c11a8e5c76827::t_9b9ac32dba7f51 31
+skills/kryptonite/references/schema-changelog.json
+  s_2c11a8e5c76827::t_211c1df238ddaa 35
+  s_2c11a8e5c76827::t_77c17ac9265c3b 71,73-78
+skills/repos/SKILL.md
+  s_2c11a8e5c76827::t_fe316a29c65397 99
+skills/kryptonite/scripts/validate-gate.js
+  s_2c11a8e5c76827::t_b19b2651772a4d 67,73
+  s_2c11a8e5c76827::t_f86b8bd934e336 182,184,190-191
+  s_2c11a8e5c76827::t_ebdb13e458502b 92,96,99
+skills/kryptonite/agents/plan-critic.md
+  s_2c11a8e5c76827::t_f3b19b6edf4256 118
+skills/kryptonite/scripts/comment-server.js
+  s_2c11a8e5c76827::t_e95560748c7ad9 1028,1030-1033
+  s_2c11a8e5c76827::t_73754534d538a4 24-28
+  s_2c11a8e5c76827::t_1db4b819a3e0a4 1063,1067,1073-1076
+skills/kryptonite/SKILL.md
+  s_2c11a8e5c76827::t_fe93bf1e275226 768,770,772-773,777-791,797,799,803,805,807-811
+  s_2c11a8e5c76827::t_03fd5a4248b8f7 217-222,229,231-233,235,237,239,241-268
+  s_2c11a8e5c76827::t_f9c20562666b36 419
+  s_2c11a8e5c76827::t_35209de996cdd5 721
+  s_2c11a8e5c76827::t_65d18a7cd4323b 562
+  s_2c11a8e5c76827::t_95fd0a79f2ef19 815
+CHANGELOG.md
+  s_2c11a8e5c76827::t_43feb31fad1f02 5
+  s_2c11a8e5c76827::t_b4af01ab95da9a 50,52-62,67,69,71,74-76,78
+  s_2c11a8e5c76827::t_bfb504c399a3e2 73
+skills/kryptonite/scripts/ui/stories.html
+  s_2c11a8e5c76827::t_8e3a750fa88b87 239-240
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "4ce3272e13aeb227f148756e59653ad954ecbc0c",
+  "prompts": {},
+  "sessions": {
+    "s_2c11a8e5c76827": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "db628442-ef2c-4949-bbf0-754b31a59422",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
