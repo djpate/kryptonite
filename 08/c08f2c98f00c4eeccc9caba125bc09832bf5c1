@@ -1,0 +1,19 @@
+skills/kryptonite/references/execution-protocol.md
+  s_2c11a8e5c76827::t_b541d028531857 1,3,5,7,9-14,16-23,25,28-44,47,50-80,83,85-89,91,93,95,97-102,104-108,110,112-118,120,122,124,128-152,156,158,160-163,165-167,169,171
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "08c08f2c98f00c4eeccc9caba125bc09832bf5c1",
+  "prompts": {},
+  "sessions": {
+    "s_2c11a8e5c76827": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "db628442-ef2c-4949-bbf0-754b31a59422",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
