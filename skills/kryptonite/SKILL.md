@@ -706,41 +706,35 @@ Wait for approval. Address comments. Once approved, move to execution.
 
 ---
 
-## Phase 12: Execution
+## Phase 12 — Execution
 
-For the full execution protocol (dependency gate, spike execution, parallel dispatch, automated DOD validation, between-wave regression, completion, and mid-execution amendments), read `references/execution-protocol.md`.
+New projects use **protocol v2** (wave-gate model). Old projects continue with v1 (preserved in git history).
 
-### Execution Loop Per Story
+**Set protocol version when entering Phase 12:** if `state.json.execution_protocol_version` is missing, set it to `"2.0"`.
 
-The orchestrator reads `state.json` to decide what to do — never trusts agent reports alone.
+### v2 in one paragraph
 
-```
-READ story.status from state.json:
+Phase 12 has two phases per wave. **Phase A** runs Coders in parallel (per-story worktrees), then merges story branches into the wave branch with NO validation between merges. **Phase B** merges the wave branch into the main worktree, starts services per `repos.json[].testing`, and runs four gate agents in parallel: UAT, UX, spec compliance, code review. If any fail, an adaptive fix loop runs (same Coder + context → Researcher + new Coder → pause for user). When all four gates pass, the wave is complete and all its stories become `done`.
 
-  "pending" + deps met    → set "in_progress", dispatch Coder
-  "in_progress" + Coder done → set "qa_validation", dispatch QA
-  "qa_validation":
-    READ dod_validation.all_passed:
-      true  → set "in_review", dispatch Reviewer
-      false → set "in_progress", re-dispatch Coder with failures
-  "in_review":
-    READ review_status:
-      "approved" + dod_validation.all_passed → set "done"
-      "needs_fixes" → set "in_progress", re-dispatch Coder
-  "blocked" → escalate after 3 attempts
-```
+### How to execute
 
-**Every state transition checks invariants before writing.** If an invariant would be violated, HALT.
+Read `references/execution-protocol.md` for the full state machine. The orchestrator (the main session — see `agents/orchestrator.md`) drives the loop using:
 
-### Key Execution Rules
+- `scripts/worktree-manager.js` — create/remove worktrees + branches, merge with conflict handling
+- `scripts/service-runner.js` — start/stop services per `repos.json[].testing`
+- `scripts/validate-wave-gate-report.js` — validate gate report JSON
 
-- **State machine is the authority** — a story's status in state.json determines what happens next, not what an agent claims
-- **Cannot mark "done" without proof** — `dod_validation.all_passed === true` AND `review_status === "approved"` MUST both be in state.json
-- **QA failures loop back to Coder** — there is no "move on anyway" path
-- **UAT per wave** — after all stories in a wave reach "done", run UAT (user flow testing via Chrome MCP) before proceeding to next wave
-- **Multi-repo aware** — Coder agents receive repo context. QA resolves `${APP_URL}` per-repo. UAT tests cross-repo integration.
-- **Scoped regression between waves** — only re-check stories that could be affected, full regression at end only
-- **3-strike escalation** — after 3 failed QA/review cycles on the same story, pause and ask the user
+Gate agents (one Task call per gate, dispatched in parallel):
+- `agents/wave-uat-agent.md` — Chrome MCP user journey walking
+- `agents/wave-ux-agent.md` — mock vs implementation comparison
+- `agents/wave-spec-compliance-agent.md` — per-story AC verification
+- `agents/wave-code-review-agent.md` — full diff review
+
+### Required preconditions
+
+Before Phase 12:
+- `repos.json` should have a `testing` block per repo that needs running services for UAT/UX. If absent, related gate checks are skipped with warnings — user is responsible for manual verification.
+- `plan.json` waves must have `user_journeys[]` populated (validated by plan-schema).
 
 ---
 
