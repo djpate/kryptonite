@@ -1,5 +1,83 @@
 # Changelog
 
+## 0.5.0 — Skill Hygiene Pass
+
+Tightens the skill itself — no protocol changes. SKILL.md is now ~250 lines instead of 900, agents have proper frontmatter, the rules that govern Phase 12 live in exactly one place, and the README finally matches the v2 wave-gate model.
+
+### SKILL.md restructured for progressive disclosure
+
+The old SKILL.md inlined the full storage layout, state machine, commit rules, and Phase 12 details — ~900 lines that the model loaded into context every time. That's now split into focused reference files loaded only when their phase or task arrives:
+
+- `references/storage-protocol.md` — plugin-folder storage, project IDs, safe-write protocol, resume detection, legacy `.kryptonite/` migration
+- `references/state-machine.md` — story/wave state machines, illegal transitions, invariants, per-story / per-wave tracked fields, commit rules
+- `references/phase-gates.md` — `validate-gate.js` behavior and per-phase requirements
+- `references/spec-versioning.md` — spec versioning, comment resolution, mid-execution amendments
+- `references/mocks-and-cross-repo.md` — Phase 8 mock protocol (foundational sequential / detail parallel) and cross-repo auto-split rules
+- `references/active-schema.json`, `references/registry-schema.json` — schemas for `active.json` and `registry.json`
+
+SKILL.md now opens with a "References — load when relevant" table that maps phases/tasks to the file the model should pull in. Skill body is ~245 lines; full depth is still available, just not loaded upfront.
+
+A "Discipline" rationalization table replaces several ALL-CAPS NEVERs — pairs the rationalization the model might have ("just prototype it", "Chrome MCP is down but I can read the source") with what's actually true, so it can reason about edge cases instead of mechanically following rules.
+
+### Compressed run mode
+
+The "Discipline" table promised an "offer a compressed run" path when users push back on phases ("I'm in a hurry", "skip the spec"). That's now defined: collapse Phases 1–3 into one turn, skip Phase 5 if no unknowns, accept sketch-level mocks — but keep DOD validation, schema gate, and wave gates intact, because those are the parts that make kryptonite different from "a plan". Dropping the gates is a different request that requires explicit user confirmation.
+
+### Phase 12 single source of truth
+
+The Phase 12 preconditions (Chrome MCP reachable, worktree support, `repos.json[].testing` block, `user_journeys[]` populated) and wave-loop rules used to live in three places — SKILL.md, `agents/orchestrator.md`, and `references/execution-protocol.md`. They drift in three places too. Promoted to `execution-protocol.md` exclusively; SKILL.md and the orchestrator now defer to it with a 2-line pointer.
+
+### Coder agent
+
+- `model: sonnet` → `model: opus`. Coding is the work the orchestrator gates on; pay for the better model.
+- Removed the "follows TDD" line, which contradicted the next-paragraph instruction not to run tests in worktree mode. Replaced with a short explanation of why worktrees can't run tests (shared DB / services would race) and what the Coder actually does: write production code + a test file per AC, commit, let the wave gates validate after merge.
+
+### Agent frontmatter
+
+`designer.md`, `interviewer.md`, `plan-critic.md`, `researcher.md`, `spec-critic.md` now have proper YAML frontmatter (`name`, `description`, `model`) so they're discoverable as skills/agents. The orchestrator and interviewer instructions are also tightened — orchestrator drops duplicated rules and points at `execution-protocol.md` as the authority; interviewer is reframed for Phases 1–11 (was 1–8 in the old text) and updated for the Spec Critic / Plan Critic agents that were added in 0.4.0.
+
+### Eval coverage expanded
+
+`evals/evals.json` grows from 1 eval to 8, covering: happy-path Phases 1–7 walkthrough, Phase 3 gap analysis quality, Phase 8 DOD validation methods, Phase 8 vague-DOD rewrite under pressure, Phase 8 cross-repo split when the user pushes back on splitting, "just prototype it" pressure, the UAT-must-report-blocked-not-pass adversarial case (the one that caught the false-pass bug late in 0.4.0), and a full mini-app wave-0 execution. Most evals are pressure scenarios — the kind the rationalization table is meant to defend against.
+
+### Repos skill (sub-skill) cleanup
+
+`skills/repos/SKILL.md` updated to match the post-0.4.0 storage layout: `<skill-path-kryptonite>/data/{PROJECT}/repos.json` (project-level, not per-epic), references `repos-schema.json` as the on-disk source of truth (including the optional `testing` block consumed by wave-gate agents), and clarifies the auto-detection / project-init handoff with the kryptonite skill.
+
+### README updated to match v2
+
+The README's State Machine + Agent Architecture diagrams were still describing the 0.3.0 per-story QA → Reviewer → Code-Reviewer chain that 0.4.0 deleted. Replaced with the v2 wave-gate shape: per-story flow ending at `merged`, separate per-wave flow with the four parallel gate agents, and 4 invariants (was 6) reflecting what's actually enforced today. Project Structure block now shows `spec.json` / `plan.json` / `spec-versions.json` / `wave-N/gates/` instead of the old HTML files.
+
+### Modified files
+
+- `skills/kryptonite/SKILL.md` — refactored for progressive disclosure (~900 → ~250 lines)
+- `skills/kryptonite/agents/coder.md` — model bumped, TDD wording fixed
+- `skills/kryptonite/agents/orchestrator.md` — defers to `execution-protocol.md`, no rule duplication
+- `skills/kryptonite/agents/interviewer.md` — frontmatter, Phases 1–11 (with Spec Critic / Plan Critic dispatching)
+- `skills/kryptonite/agents/{designer,plan-critic,researcher,spec-critic}.md` — frontmatter added
+- `skills/kryptonite/references/execution-protocol.md` — Phase 12 preconditions live here now
+- `skills/kryptonite/references/wave-gate-report-schema.json` — minor schema fix
+- `skills/kryptonite/evals/evals.json` — 8 evals (was 1), most pressure scenarios
+- `skills/repos/SKILL.md` — aligned with project-level storage and `repos-schema.json`
+- `README.md` — v2 state machine + agent architecture, updated project structure
+- `package.json` — 0.4.0 → 0.5.0
+
+### New files
+
+- `skills/kryptonite/references/storage-protocol.md`
+- `skills/kryptonite/references/state-machine.md`
+- `skills/kryptonite/references/phase-gates.md`
+- `skills/kryptonite/references/spec-versioning.md`
+- `skills/kryptonite/references/mocks-and-cross-repo.md`
+- `skills/kryptonite/references/active-schema.json`
+- `skills/kryptonite/references/registry-schema.json`
+
+### Migration
+
+Nothing breaks for existing 0.4.0 projects — protocol is unchanged, only skill prompts and references moved around. State files (`spec.json`, `plan.json`, `state.json`, `repos.json`) and validators are untouched.
+
+---
+
 ## 0.4.0 — Wave-Gate Execution + Structured Spec/Plan
 
 **Breaking release.** Replaces freeform HTML spec/plan generation with validated JSON. Replaces per-story validation gates with a wave-level gate model. Drops the v0.3.0 protocol entirely — projects mid-execution under 0.3.0 cannot continue on 0.4.0 (finish them on 0.3.0 or restart Phase 12). See Migration below.

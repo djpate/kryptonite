@@ -1,6 +1,15 @@
 # Kryptonite Execution Protocol — Wave-Gate Model
 
-This document defines Phase 12 (execution).
+This document defines Phase 12 (execution). It is the authority — the SKILL.md summary and `agents/orchestrator.md` both defer to this file.
+
+## Preconditions — check before dispatching any subagent
+
+If any of these fail, stop. Phases 1–11 still produced a usable spec + plan; surface the gap to the user rather than pretending Phase 12 ran.
+
+- **Chrome MCP is reachable.** Without it, UAT and UX gates can only return `blocked` and the wave will never advance.
+- **Git worktree support works** in every repo's filesystem. Some FUSE / network filesystems silently break `git worktree add`.
+- **`repos.json` has a `testing` block** for every repo that needs a running service. A missing testing block skips that repo's gate checks with a warning, and the user is on the hook for manual verification.
+- **`plan.json` waves have `user_journeys[]` populated.** UAT and UX have nothing to walk otherwise.
 
 ## State Machine
 

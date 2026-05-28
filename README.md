@@ -205,46 +205,48 @@ graph TD
 graph LR
     O["Orchestrator"]
 
-    subgraph interview ["Phases 1-11"]
+    subgraph interview ["Phases 1-11 (main session)"]
         I["Interviewer"]
-    end
-
-    subgraph exec ["Phase 12 — Dispatched"]
-        R["Researcher"]
-        D["Designer"]
-        C["Coder (worktree)"]
-        M["Merge (serial)"]
-        Q["QA"]
-        RV["Reviewer"]
-        CR["Code Reviewer"]
-    end
-
-    subgraph gates ["Quality Gates"]
         SC["Spec Critic"]
         PC["Plan Critic"]
     end
 
-    O --> I
+    subgraph phaseA ["Phase 12 — Phase A (parallel)"]
+        R["Researcher"]
+        D["Designer"]
+        C["Coder (per-story worktree)"]
+    end
+
+    subgraph phaseB ["Phase 12 — Phase B (parallel wave gates)"]
+        UAT["Wave UAT"]
+        UX["Wave UX"]
+        SCG["Wave Spec Compliance"]
+        CRG["Wave Code Review"]
+    end
+
+    O --> I --> SC --> PC
     O --> R & D & C
-    C -->|branch| M --> Q --> RV --> CR
-    Q -->|Fail| C
-    RV -->|Reject| C
-    CR -->|Reject| C
-    O --> SC & PC
+    C -->|branch merged| O
+    O --> UAT & UX & SCG & CRG
+    UAT -->|fail| C
+    UX -->|fail| C
+    SCG -->|fail| C
+    CRG -->|fail| C
 ```
 
 | Agent | Role |
 |:------|:-----|
-| **Orchestrator** | Coordinates everything, enforces the state machine |
-| **Interviewer** | Guides Phases 1-11 — one question at a time |
-| **Designer** | Visual mockups with progressive direction locking |
-| **Researcher** | Spike execution, produces decision documents |
-| **Coder** | Implements in worktree (no tests), fixes on main post-merge |
-| **QA** | Automated DOD validation + per-wave UAT |
-| **Reviewer** | Spec compliance — acceptance criteria met, nothing extra |
-| **Code Reviewer** | Code quality via /code-review — security, simplification |
-| **Spec Critic** | Reviews spec for gaps, contradictions, weak DODs |
-| **Plan Critic** | Reviews plan for conflicts, merge risk, ordering |
+| **Orchestrator** | Main-session driver of Phase 12; enforces state machine and the four-gate wave loop |
+| **Interviewer** | Main-session conversation partner for Phases 1–11 — one question at a time |
+| **Designer** | Visual mockups with progressive direction locking (Phase 8) |
+| **Researcher** | Spike execution (Phase 5); also dispatched on fix-loop attempt 2 to investigate root cause |
+| **Coder** | Implements one story in a worktree (no test execution); fixes on main during the wave fix loop |
+| **Wave UAT** | Walks `user_journeys[]` via Chrome MCP after wave merge — reports `pass` / `fail` / `blocked` |
+| **Wave UX** | Side-by-side compare of implementation vs approved mocks |
+| **Wave Spec Compliance** | Verifies every story's `acceptance_criteria` against the merged wave |
+| **Wave Code Review** | Full diff review: security, correctness, error handling, dead code |
+| **Spec Critic** | Reviews spec.json for gaps, contradictions, weak DODs (after Phase 10) |
+| **Plan Critic** | Reviews plan.json for file conflicts, ordering, infrastructure gaps (after Phase 11) |
 
 </details>
 
@@ -252,29 +254,38 @@ graph LR
 <summary><strong>State Machine & Execution Loop</strong></summary>
 <br/>
 
+Stories and waves move together. A story reaches `merged` when its branch lands in the wave branch; it only flips to `done` retroactively, in bulk with its waves' siblings, when the wave's four gates all pass.
+
 ```mermaid
 stateDiagram-v2
+    direction LR
     [*] --> pending
-    pending --> in_progress : deps met, dispatch to worktree
-    in_progress --> qa_validation : branch merged, QA dispatched
-    qa_validation --> in_review : QA passes
-    qa_validation --> in_progress : QA fails (fix on main)
-    in_review --> code_review : Reviewer approves
-    in_review --> in_progress : Reviewer rejects (fix on main)
-    code_review --> done : Code Reviewer approves
-    code_review --> in_progress : Code Reviewer rejects (fix on main)
-    in_progress --> blocked : 3 failures
+    pending --> in_progress : deps met, Coder dispatched in worktree
+    in_progress --> merged : story branch merged into wave branch
+    merged --> done : wave reaches complete
+    merged --> blocked : wave gates failed and user deferred this story
+    pending --> deferred
+    pending --> cancelled
     done --> [*]
+```
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> pending
+    pending --> in_progress : Phase A — parallel coding
+    in_progress --> gates_running : Phase B — wave merged, services up
+    gates_running --> complete : all 4 gates pass
+    gates_running --> blocked : any gate blocked OR fix loop exhausted
+    complete --> [*]
 ```
 
 **Invariants enforced on every state write:**
 
-1. Cannot reach `done` without `dod_validation.all_passed === true`
-2. Cannot reach `done` without `review_status === "approved"`
-3. Cannot reach `done` without `code_review_status === "approved"`
-4. Cannot enter `in_review` without passing QA
-5. Cannot enter `code_review` without Reviewer approval
-6. Cannot enter `in_progress` without all dependencies met
+1. A story only reaches `done` when its wave's status is `complete`.
+2. A wave only reaches `complete` when all four gate reports in the latest gate run have `status: "pass"`.
+3. A wave with any gate `status: "blocked"` pauses for the user — no fix loop, no advance. Blocked is infrastructure (Chrome MCP, service start), not a code defect.
+4. A story cannot enter `in_progress` until all its dependencies have `merged` or `done` status.
 
 </details>
 
@@ -284,20 +295,23 @@ stateDiagram-v2
 
 ```
 ~/.claude/plugins/kryptonite/data/
-├── registry.json           # Global project registry
-├── active.json             # Maps projects to active epics
+├── registry.json            # Global project registry
+├── active.json              # Maps projects to active epics
 └── {project-id}/
-    ├── project.json        # Project metadata (source, path)
-    ├── repos.json          # Shared repo registry (persists across epics)
+    ├── project.json         # Project metadata (source, path)
+    ├── repos.json           # Shared repo registry (persists across epics)
     └── {epic-slug}/
-        ├── epic.json       # Parties, tech context, current phase
-        ├── state.json      # Stories, waves, execution state
-        ├── state.json.bak  # Backup (corruption recovery)
-        ├── comments.json   # Persisted review comments
-        ├── spec.html       # Branded spec document
-        ├── plan.html       # Implementation plan
-        ├── spikes/         # Research findings
-        └── mocks/          # Visual mockups + screenshots
+        ├── epic.json        # Parties, tech context, current phase
+        ├── state.json       # Stories, waves, execution state
+        ├── state.json.bak   # Backup (corruption recovery)
+        ├── spec.json        # Validated spec (rendered by the SPA at /spec)
+        ├── plan.json        # Validated plan with user_journeys (rendered at /plan)
+        ├── spec-versions.json  # Versioned spec history
+        ├── comments.json    # Persisted review comments
+        ├── spikes/          # Research findings
+        ├── mocks/           # Visual mockups + screenshots
+        └── wave-N/
+            └── gates/       # Per-attempt UAT/UX/spec/code-review reports
 ```
 
 > [!NOTE]
