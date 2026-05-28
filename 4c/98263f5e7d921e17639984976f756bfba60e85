@@ -1,0 +1,19 @@
+skills/kryptonite/scripts/worktree-manager.js
+  s_2c11a8e5c76827::t_d53597f4ba2eda 1-109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "4c98263f5e7d921e17639984976f756bfba60e85",
+  "prompts": {},
+  "sessions": {
+    "s_2c11a8e5c76827": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "db628442-ef2c-4949-bbf0-754b31a59422",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
