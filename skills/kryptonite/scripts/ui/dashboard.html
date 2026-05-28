@@ -28,8 +28,9 @@
             <span class="text-sm font-semibold text-slate-200" x-text="wave.name"></span>
             <span class="badge badge-xs"
               :class="{
-                'badge-success': wave.status === 'completed',
-                'badge-warning': wave.status === 'in_progress',
+                'badge-success': wave.status === 'complete' || wave.status === 'completed',
+                'badge-warning': wave.status === 'in_progress' || wave.status === 'gates_running',
+                'badge-error': wave.status === 'blocked',
                 'badge-ghost': wave.status === 'pending' || !wave.status
               }"
               x-text="wave.status || 'pending'"></span>
@@ -39,8 +40,26 @@
 
         <!-- Progress Bar -->
         <progress class="progress progress-success w-full h-1.5 mb-3"
-          :value="(wave.stories || []).filter(sid => ($store.app.state?.stories || []).find(s => s.id === sid && s.status === 'done')).length"
+          :value="(wave.stories || []).filter(sid => ($store.app.state?.stories || []).find(s => s.id === sid && (s.status === 'done' || s.status === 'merged'))).length"
           :max="(wave.stories || []).length"></progress>
+
+        <!-- Wave Gates (v2 protocol only) -->
+        <template x-if="wave.gate_runs && wave.gate_runs.length > 0">
+          <div class="flex flex-wrap items-center gap-1.5 mb-3 text-[11px]">
+            <span class="text-slate-500">Latest gates:</span>
+            <template x-for="gate in ['uat','ux','spec_compliance','code_review']" :key="gate">
+              <span class="badge badge-xs"
+                :class="{
+                  'badge-success': wave.gate_runs[wave.gate_runs.length-1]?.[gate]?.status === 'pass',
+                  'badge-error': wave.gate_runs[wave.gate_runs.length-1]?.[gate]?.status === 'fail',
+                  'badge-warning': wave.gate_runs[wave.gate_runs.length-1]?.[gate]?.status === 'blocked',
+                  'badge-ghost': !wave.gate_runs[wave.gate_runs.length-1]?.[gate]?.status
+                }"
+                x-text="gate.replace('_','-') + ': ' + (wave.gate_runs[wave.gate_runs.length-1]?.[gate]?.status || '—')"></span>
+            </template>
+            <span class="text-slate-500" x-text="'attempt ' + wave.gate_runs[wave.gate_runs.length-1]?.attempt"></span>
+          </div>
+        </template>
 
         <!-- Story Table -->
         <div class="overflow-x-auto">
@@ -51,7 +70,6 @@
                 <th>Story</th>
                 <th>Status</th>
                 <th>Priority</th>
-                <th>DOD</th>
                 <th>Commit</th>
                 <th>Agent</th>
               </tr>
@@ -65,8 +83,9 @@
                     <span class="badge badge-xs"
                       :class="{
                         'badge-success': story?.status === 'done',
+                        'badge-info': story?.status === 'merged' || story?.status === 'in_review' || story?.status === 'qa_validation',
                         'badge-warning': story?.status === 'in_progress',
-                        'badge-info': story?.status === 'in_review' || story?.status === 'qa_validation',
+                        'badge-error': story?.status === 'blocked',
                         'badge-ghost': story?.status === 'pending' || !story?.status
                       }"
                       x-text="story?.status || 'pending'"></span>
@@ -74,7 +93,6 @@
                   <td>
                     <span class="badge badge-xs" :class="'badge-' + (story?.priority || 'medium')" x-text="story?.priority || 'medium'"></span>
                   </td>
-                  <td class="text-xs text-slate-400" x-text="story?.dod_validation ? (story.dod_validation.items_passed + '/' + story.dod_validation.items_total) : '—'"></td>
                   <td>
                     <span class="font-mono text-xs text-blue-400" x-show="story?.commit_sha" x-text="(story?.commit_sha || '').substring(0, 7)"></span>
                     <span x-show="!story?.commit_sha" class="text-slate-500">—</span>

@@ -2,6 +2,88 @@
   "description": "Tracks schema changes per kryptonite version. Used by the validator to understand which fields existed at a given version and by migration logic to upgrade older epics.",
   "versions": [
     {
+      "version": "0.4.0",
+      "date": "2026-05-28",
+      "changes": [
+        {
+          "type": "added",
+          "target": "state.json",
+          "field": "execution_protocol_version",
+          "description": "Top-level field selecting Phase 12 protocol. '2.0' = wave-gate model (new). Missing or '1.0' = legacy per-story gates."
+        },
+        {
+          "type": "added",
+          "target": "plan.json",
+          "field": "waves[].user_journeys",
+          "description": "Required array of user journeys per wave. Each journey has id (UJ-NNN), name, stories_covered[], and steps[] (Chrome MCP actions). Used by wave-uat-agent."
+        },
+        {
+          "type": "added",
+          "target": "plan.json",
+          "field": "wave_gate_config",
+          "description": "Optional top-level config to toggle individual gates and tune max_fix_attempts and fix_strategies."
+        },
+        {
+          "type": "added",
+          "target": "repos.json",
+          "field": "repos[].testing",
+          "description": "Optional structured block: start_command, stop_command, health_check, app_url, ready_signal, startup_timeout_ms. Drives service lifecycle in Phase B. Without it, UAT/UX gates skip for that repo's stories."
+        },
+        {
+          "type": "added",
+          "target": "story-schema.json",
+          "field": "merged_at",
+          "description": "ISO timestamp of when the story branch was merged into the wave branch."
+        },
+        {
+          "type": "removed",
+          "target": "story-schema.json",
+          "field": "dod_validation, review_status, code_review_status, qa_status",
+          "description": "Per-story validation fields dropped — wave-level gates replace per-story QA/Reviewer/CodeReview agents."
+        },
+        {
+          "type": "changed",
+          "target": "story-schema.json",
+          "field": "status enum",
+          "description": "From [pending, in_progress, qa_validation, in_review, done, blocked, cancelled, deferred] to [pending, in_progress, merged, done, blocked, cancelled, deferred]. Story is 'merged' after its branch lands in the wave branch; promotes to 'done' when the wave completes."
+        },
+        {
+          "type": "added",
+          "target": "spec.json",
+          "field": "(entire file)",
+          "description": "Replaces freeform spec.html. Validated by references/spec-schema.json. Composes story-schema.json via $ref. Contains overview, parties, repos, architecture (components/interactions/decisions), data_model, api_boundaries, nfrs, technical_constraints, design_direction, stories, spike_findings, open_questions."
+        },
+        {
+          "type": "added",
+          "target": "plan.json",
+          "field": "(entire file)",
+          "description": "Replaces freeform plan.html. Validated by references/plan-schema.json. Contains summary, waves (with parallel_groups, tasks, demo_checkpoint, user_journeys), critical_path, parallel_strategy, risks."
+        },
+        {
+          "type": "added",
+          "target": "wave-gate-report-schema.json",
+          "field": "status enum",
+          "description": "Wave gate reports have status [pass, fail, blocked]. Blocked = infrastructure unavailable; orchestrator pauses for user instead of entering fix loop. Issues[].severity gains 'blocked' alongside critical/high/medium/low."
+        },
+        {
+          "type": "added",
+          "target": "state.json",
+          "field": "waves[].gate_runs",
+          "description": "Immutable history of wave gate attempts. Each entry has uat/ux/spec_compliance/code_review status + report_path, plus issues[] with fix_attempts[] for adaptive retry tracking."
+        }
+      ],
+      "migration": {
+        "from": "0.3.0",
+        "steps": [
+          "If you want to use the new wave-gate protocol on an existing project: set state.json.execution_protocol_version to '2.0'.",
+          "Update any story with status 'qa_validation' or 'in_review' to 'merged' (or 'in_progress' if work hasn't started). The new schema rejects the old values.",
+          "For each wave still pending in plan.json, add a user_journeys[] array with at least one journey covering the wave's stories. The plan validator will fail without this.",
+          "Optional but recommended: add a 'testing' block to each repo in repos.json that needs a running service. Without it, UAT and UX gates skip for that repo (with warnings).",
+          "Old projects (no execution_protocol_version, or '1.0') continue with the legacy per-story QA/Reviewer/CodeReview gates — no migration required if you don't want to switch."
+        ]
+      }
+    },
+    {
       "version": "0.3.0",
       "date": "2026-05-27",
       "changes": [

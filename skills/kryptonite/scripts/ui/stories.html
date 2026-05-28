@@ -236,9 +236,12 @@
         columns: [
           { key: 'pending', label: 'Pending', statuses: ['pending'], color: '#64748b', bgClass: 'col-pending' },
           { key: 'in_progress', label: 'In Progress', statuses: ['in_progress'], color: '#f59e0b', bgClass: 'col-in-progress' },
-          { key: 'qa', label: 'QA / Review', statuses: ['qa_validation', 'in_review'], color: '#3b82f6', bgClass: 'col-qa' },
-          { key: 'code_review', label: 'Code Review', statuses: ['code_review'], color: '#8b5cf6', bgClass: 'col-code-review' },
+          // 'merged' is the v2 protocol state — story branch landed in wave-N, awaiting wave gates.
+          // 'qa_validation', 'in_review', 'code_review' are v1 protocol states; kept here so
+          // legacy projects continue to render the kanban correctly.
+          { key: 'merged', label: 'Merged / In Review', statuses: ['merged', 'qa_validation', 'in_review', 'code_review'], color: '#3b82f6', bgClass: 'col-qa' },
           { key: 'done', label: 'Done', statuses: ['done'], color: '#10b981', bgClass: 'col-done' },
+          { key: 'blocked', label: 'Blocked', statuses: ['blocked'], color: '#ef4444', bgClass: 'col-blocked' },
         ],
         async init() {
           await this.$store.app.load();

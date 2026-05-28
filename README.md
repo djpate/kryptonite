@@ -8,9 +8,9 @@
   <br/><br/>
 
   [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-7c3aed?style=flat-square)](https://github.com/djpate/kryptonite)
-  [![Version](https://img.shields.io/badge/version-0.1.0-10b981?style=flat-square)](https://github.com/djpate/kryptonite/releases)
+  [![Version](https://img.shields.io/badge/version-0.4.0-10b981?style=flat-square)](https://github.com/djpate/kryptonite/releases)
   [![License: MIT](https://img.shields.io/badge/license-MIT-64748b?style=flat-square)](LICENSE)
-  [![Agents](https://img.shields.io/badge/agents-10-6366f1?style=flat-square)](#agent-architecture)
+  [![Agents](https://img.shields.io/badge/agents-14-6366f1?style=flat-square)](#agent-architecture)
   [![Phases](https://img.shields.io/badge/phases-12-f59e0b?style=flat-square)](#how-it-works--12-phase-workflow)
 
 </div>
@@ -89,29 +89,32 @@ The registry persists across epics at `.kryptonite/repos.json` — define your r
 
 ### The Spec & Plan
 
-Once stories, spikes, and DODs are complete, Kryptonite generates a branded HTML spec served at `http://localhost:3847`. You can click any section to leave inline comments. A live dashboard at `/dashboard` shows progress, and a mock gallery at `/mocks` shows approved visual mockups.
+Once stories, spikes, and DODs are complete, Kryptonite generates `spec.json` and `plan.json` validated against schemas (`spec-schema.json`, `plan-schema.json`, both composing the existing `story-schema.json` via `$ref`). The schemas enforce structure: every architectural component has an ID and a repo, every API endpoint has a method and auth model, every wave has a `user_journeys[]` array of executable browser steps. The LLM can't ship vague prose — the validator rejects it.
 
-Before you see the spec, a **Spec Critic** agent reviews it for: missing dependencies, weak DODs, contradictions, cross-repo contract mismatches. If it finds issues, they're fixed before the spec reaches you.
+A web UI at `http://localhost:3847` reads the JSON via `/api/spec` and `/api/plan` and renders a dark-themed sidebar layout. You can click any section to leave inline comments. The live dashboard at `/dashboard` shows wave progress and gate status; a mock gallery at `/mocks` shows approved visual mockups.
 
-The implementation plan groups stories into waves — parallel batches where no story conflicts with another in the same wave, and all dependencies are in earlier waves. A **Plan Critic** reviews the plan for: file conflicts between parallel stories, missing infrastructure, unrealistic breakdowns, and ordering issues.
+Before you see the spec, a **Spec Critic** agent reviews it for: missing dependencies, weak DODs, contradictions, cross-repo contract mismatches. The implementation plan groups stories into waves — parallel batches where no story conflicts with another in the same wave, and all dependencies are in earlier waves. A **Plan Critic** reviews for file conflicts, missing infrastructure, unrealistic breakdowns, and ordering issues.
 
 You approve (or comment and iterate on) both the spec and plan before execution begins.
 
 ### Execution
 
-Stories execute wave by wave using **worktree isolation** — parallel coding without database conflicts:
+Phase 12 splits each wave into two phases.
 
-1. **Parallel coding** — independent stories in a wave are dispatched to Coder agents simultaneously, each in its own git worktree on an isolated branch. Coders write code and tests but do NOT run specs — no shared database access, no migration conflicts.
-2. **Serial merge + test** — as each Coder finishes (first-done-first-merged), the orchestrator merges its branch into main one at a time, runs migrations, then dispatches the three-gate verification pipeline:
-   - **QA** — runs every DOD validation command (curl, Chrome MCP, test suite, file checks). ALL must pass.
-   - **Reviewer** — checks spec compliance: are all acceptance criteria implemented? Nothing extra, nothing missing.
-   - **Code Reviewer** — runs `/code-review` on the diff, flags security issues and simplification opportunities.
+**Phase A — Parallel coding.** Stories in a wave are dispatched to Coder agents in parallel, each in its own git worktree on an isolated branch (`wave-N/US-XXX`). Coders write code and commit. As each finishes, its branch merges into the wave branch (`wave-N`) with a merge commit. NO validation runs between merges — fast and cheap. After all stories merge, the wave branch merges into the main worktree's branch.
 
-If a merge conflicts, the Coder is re-dispatched on main to apply its changes manually. If any gate fails → loops back to Coder with specific feedback, then re-runs the full pipeline. A story cannot reach "done" unless all three gates approve — enforced by state machine invariants on every write, not by convention.
+**Phase B — Wave gates.** With the full wave integrated and the application running, four gate agents validate in parallel:
 
-After each wave completes, QA runs **User Acceptance Testing** — driving through the app as real users via Chrome, testing that cross-story flows actually work end-to-end (not just individual DODs). For multi-repo projects, UAT starts all relevant services and tests the integration between them.
+- **UAT** — walks `user_journeys[]` from plan.json via Chrome MCP. Real navigation, real assertions, real screenshots.
+- **UX** — screenshots the implementation and compares to the approved mocks side-by-side. Categorizes drift (colors, layout, typography, spacing, missing element, responsive).
+- **Spec Compliance** — verifies each story's `acceptance_criteria` items, including ones the user journeys don't exercise.
+- **Code Review** — full diff review covering security, correctness, error handling, dead code, performance, and egregious style.
 
-After 3 failed QA/Review cycles on the same story, Kryptonite pauses and asks you to intervene.
+Each gate writes a structured JSON report validated against `wave-gate-report-schema.json`. Gates have three outcomes: **pass**, **fail**, or **blocked**. Blocked means infrastructure (Chrome MCP, service start) isn't reachable — the orchestrator pauses and asks you for help instead of pretending the gate passed via static analysis. False passes are worse than blocked statuses.
+
+When a gate fails on real code defects, an **adaptive fix loop** runs. Each issue gets up to three fix attempts: same Coder + more context → Researcher + new Coder → pause for user. Only failed gates re-run after a fix; passed gates carry forward. The wave advances only when all four gates report `pass`; story statuses transition from `merged` to `done` in bulk.
+
+Service lifecycle is driven by `repos.json[].testing` (`start_command`, `stop_command`, `health_check`, `app_url`, `ready_signal`) — kryptonite is infrastructure-agnostic. Marengo, docker-compose, foreman, plain `npm start` — anything you can express as a shell command.
 
 ### Resuming & Restarting
 
@@ -132,8 +135,10 @@ After 3 failed QA/Review cycles on the same story, Kryptonite pauses and asks yo
 | **Spike** | A research task that executes before planning. Answers unknowns so you don't plan around assumptions. |
 | **DOD** | Definition of Done — concrete, automatable proof. Not "it works" but specific commands with expected outputs. |
 | **Wave** | A batch of stories that can execute in parallel. Ordered by dependency — no wave runs until the previous one passes. |
-| **State Machine** | The enforcement layer: pending → in_progress → qa_validation → in_review → done. Steps cannot be skipped. |
-| **UAT** | User Acceptance Testing — end-to-end flow testing via Chrome after each wave, beyond individual DOD checks. |
+| **State Machine** | The enforcement layer. Stories: pending → in_progress → merged → done. Waves: pending → in_progress → gates_running → complete (or blocked). Steps cannot be skipped. |
+| **Wave Gate** | Wave-level validation that runs after a wave's stories all merge. Four gates in parallel: UAT, UX, Spec Compliance, Code Review. Wave only advances when all four pass. |
+| **Blocked Gate** | Gate status reserved for infrastructure problems (Chrome MCP unreachable, service won't start). Orchestrator pauses for the user instead of running the fix loop, since dispatching Coders can't fix infrastructure. |
+| **User Journey** | Concrete browser walkthrough defined per wave in plan.json. Steps[] array of Chrome MCP actions (navigate, click, fill, assert_text, screenshot...). The UAT gate executes these. |
 
 ---
 
@@ -144,8 +149,8 @@ After 3 failed QA/Review cycles on the same story, Kryptonite pauses and asks yo
 | Requirements | "Just build it" | 12-phase structured interview, one question at a time |
 | Unknowns | Hope for the best | Spikes execute research immediately, findings shape the plan |
 | Validation | Trust the AI | Every DOD item proven by curl, Chrome MCP, or test suite |
-| Quality gates | None | QA + Reviewer + Code Reviewer must all approve — enforced by state invariants |
-| Parallel agents | DB conflicts, migration stomping | Worktree isolation — parallel code, serial merge+test |
+| Quality gates | None | UAT + UX + Spec Compliance + Code Review run in parallel at wave end; a `blocked` status forces a pause instead of faking pass |
+| Parallel agents | DB conflicts, migration stomping | Worktree isolation per story for coding; single merge into wave branch; gates run once per wave (not per story) |
 | Multi-repo | One file at a time | Cross-repo auto-split with dependency tracking and per-repo QA |
 | State | Lost between sessions | Persistent state with exact-phase resume |
 | Scope creep | Uncontrolled growth | Re-scope phase after spikes — user decides what stays |

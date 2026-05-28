@@ -40,6 +40,11 @@ body {
   border-color: #14532d;
 }
 
+.col-blocked {
+  background: #2a0a0a;
+  border-color: #7f1d1d;
+}
+
 /* Story cards */
 .story-card {
   background: var(--surface);
