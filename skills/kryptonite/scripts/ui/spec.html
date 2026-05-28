@@ -757,6 +757,9 @@
       return {
         spec: null,
         async load() {
+          // Populate the shared Alpine store so the nav bar shows the epic switcher,
+          // phase badge, and progress indicator. Without this, the nav stays "Loading..."
+          try { await this.$store.app.load(); } catch (e) { console.error('store.load failed', e); }
           try {
             const res = await fetch('/api/spec');
             if (res.ok) this.spec = await res.json();
