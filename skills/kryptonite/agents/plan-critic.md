@@ -115,7 +115,7 @@ For each parallel group within a wave, extract all file paths from every task st
 - Suggest moving risky stories earlier if possible
 
 ### 7. DOD Executability (Pre-flight)
-- Can the QA agent actually run these DOD commands? (Is the app URL correct? Are ports right?)
+- Can the wave gate agents actually run these DOD commands? (Is `app_url` correct in repos.json[].testing? Are ports right?)
 - Do chrome_mcp commands assume UI elements that only exist after other stories complete?
 - Are there DOD items that need multiple services running simultaneously?
 - Flag any DOD that looks like it'll timeout or require manual setup

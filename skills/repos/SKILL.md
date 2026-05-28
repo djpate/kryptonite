@@ -96,7 +96,7 @@ When the user wants to remove a repo:
 }
 ```
 
-The `testing_notes` field is **free-form text** — put whatever the QA agent and Coder need to know to test against this repo: credentials, URLs, how to seed data, API keys, external service configs, special env vars, etc. This gets passed to agents when they work on stories in this repo.
+The `testing_notes` field is **free-form text** — put whatever the wave gate agents and Coder need to know to test against this repo: credentials, URLs, how to seed data, API keys, external service configs, special env vars, etc. This gets passed to agents when they work on stories in this repo.
 ```
 
 ## Initialization

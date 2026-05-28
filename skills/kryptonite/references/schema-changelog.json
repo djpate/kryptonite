@@ -7,12 +7,6 @@
       "changes": [
         {
           "type": "added",
-          "target": "state.json",
-          "field": "execution_protocol_version",
-          "description": "Top-level field selecting Phase 12 protocol. '2.0' = wave-gate model (new). Missing or '1.0' = legacy per-story gates."
-        },
-        {
-          "type": "added",
           "target": "plan.json",
           "field": "waves[].user_journeys",
           "description": "Required array of user journeys per wave. Each journey has id (UJ-NNN), name, stories_covered[], and steps[] (Chrome MCP actions). Used by wave-uat-agent."
@@ -38,7 +32,7 @@
         {
           "type": "removed",
           "target": "story-schema.json",
-          "field": "dod_validation, review_status, code_review_status, qa_status",
+          "field": "dod_validation, review_status, code_review_status, qa_status, test_results",
           "description": "Per-story validation fields dropped — wave-level gates replace per-story QA/Reviewer/CodeReview agents."
         },
         {
@@ -74,12 +68,14 @@
       ],
       "migration": {
         "from": "0.3.0",
+        "breaking": true,
         "steps": [
-          "If you want to use the new wave-gate protocol on an existing project: set state.json.execution_protocol_version to '2.0'.",
-          "Update any story with status 'qa_validation' or 'in_review' to 'merged' (or 'in_progress' if work hasn't started). The new schema rejects the old values.",
-          "For each wave still pending in plan.json, add a user_journeys[] array with at least one journey covering the wave's stories. The plan validator will fail without this.",
-          "Optional but recommended: add a 'testing' block to each repo in repos.json that needs a running service. Without it, UAT and UX gates skip for that repo (with warnings).",
-          "Old projects (no execution_protocol_version, or '1.0') continue with the legacy per-story QA/Reviewer/CodeReview gates — no migration required if you don't want to switch."
+          "BREAKING: 0.4.0 only supports the wave-gate execution model. Projects mid-execution under 0.3.0 will not run on 0.4.0 — finish them on 0.3.0 or restart Phase 12 under 0.4.0.",
+          "Update any story with status 'qa_validation', 'in_review', or 'code_review' to 'merged' (or 'in_progress' if work hasn't started). The new schema rejects the old values.",
+          "Drop the per-story fields dod_validation, review_status, code_review_status, qa_status if present — they are no longer recognized.",
+          "Convert spec.html to spec.json (validated against references/spec-schema.json) and plan.html to plan.json (validated against references/plan-schema.json). The new file format is required.",
+          "Add a user_journeys[] array to each wave in plan.json with at least one journey covering the wave's stories — the plan validator rejects waves without it.",
+          "Recommended: add a 'testing' block to each repo in repos.json that needs a running service. Without it, UAT and UX gates skip for that repo (with warnings)."
         ]
       }
     },

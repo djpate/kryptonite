@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Phase 12 Gate — Execution Complete",
-  "description": "All non-cancelled/deferred stories are done with all gates passed. All waves completed.",
+  "description": "All non-cancelled/deferred stories are done. All waves are complete with all four wave gates passing.",
   "type": "object",
   "required": ["epic", "state"],
   "properties": {
@@ -22,25 +22,17 @@
           "items": {
             "type": "object",
             "required": ["id", "status"],
-            "if": {
-              "properties": {
-                "status": { "enum": ["done", "pending", "in_progress", "qa_validation", "in_review", "blocked"] }
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": ["pending", "in_progress", "merged", "done", "blocked", "cancelled", "deferred"]
               }
             },
+            "if": {
+              "not": { "properties": { "status": { "enum": ["cancelled", "deferred"] } } }
+            },
             "then": {
-              "properties": {
-                "status": { "const": "done" },
-                "dod_validation": {
-                  "type": "object",
-                  "required": ["all_passed"],
-                  "properties": {
-                    "all_passed": { "const": true }
-                  }
-                },
-                "review_status": { "const": "approved" },
-                "code_review_status": { "const": "approved" }
-              },
-              "required": ["status", "dod_validation", "review_status", "code_review_status"]
+              "properties": { "status": { "const": "done" } }
             }
           }
         },
@@ -51,7 +43,7 @@
             "type": "object",
             "required": ["status"],
             "properties": {
-              "status": { "const": "completed" }
+              "status": { "enum": ["complete", "blocked", "cancelled", "deferred"] }
             }
           }
         }

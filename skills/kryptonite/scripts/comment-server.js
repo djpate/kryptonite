@@ -18,13 +18,14 @@ const { values } = parseArgs({
 });
 
 const PORT = parseInt(values.port, 10);
-let specPath = values["spec-path"];
-let planPath = values["plan-path"];
 let statePath = values["state-path"];
 const visualOnly = values["visual-only"];
 
-if (!specPath && !visualOnly) {
-  console.error("Usage: node comment-server.js --spec-path <path> [--plan-path <path>] [--state-path <path>] [--port <port>]");
+// spec-path / plan-path were used for the legacy HTML mode and are now ignored.
+// The server reads spec.json and plan.json from the epic directory derived from --state-path.
+
+if (!statePath && !visualOnly) {
+  console.error("Usage: node comment-server.js --state-path <path-to-state.json> [--port <port>]");
   console.error("  or:  node comment-server.js --visual-only [--port <port>]");
   process.exit(1);
 }
@@ -817,8 +818,6 @@ const server = http.createServer((req, res) => {
         }
         // Switch paths
         statePath = newStatePath;
-        specPath = path.join(targetProjectDir, slug, "spec.html");
-        planPath = path.join(targetProjectDir, slug, "plan.html");
         // Reload comments for new epic
         comments = loadComments();
         res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
@@ -1026,24 +1025,12 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Plan
+  // Plan — Alpine.js SPA reads /api/plan
   if (url.pathname === "/plan") {
-    const epicDir = getEpicDir();
-    // JSON mode: serve the SPA renderer
-    if (epicDir && fs.existsSync(path.join(epicDir, "plan.json"))) {
-      const spaPath = path.join(UI_DIR, "plan.html");
-      if (serveStaticFile(spaPath, res)) return;
-    }
-    // HTML mode: legacy
-    if (!planPath) { res.writeHead(404); res.end("Plan not generated yet"); return; }
-    try {
-      const html = fs.readFileSync(planPath, "utf-8");
-      res.writeHead(200, { "Content-Type": "text/html" });
-      res.end(injectUI(html));
-    } catch {
-      res.writeHead(404);
-      res.end("Plan not generated yet");
-    }
+    const spaPath = path.join(UI_DIR, "plan.html");
+    if (serveStaticFile(spaPath, res)) return;
+    res.writeHead(404);
+    res.end("Plan SPA not found");
     return;
   }
 
@@ -1073,33 +1060,20 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Spec (root) or index.html
+  // Spec (root) or index.html — Alpine.js SPA reads /api/spec
   if (url.pathname === "/" || url.pathname === "/spec") {
     if (visualOnly) { res.writeHead(302, { Location: "/visual" }); res.end(); return; }
 
-    // Try serving static index.html first (for "/" only)
+    // For "/" prefer index.html (the project landing page); for "/spec" go straight to the SPA
     if (url.pathname === "/") {
       const indexPath = path.join(UI_DIR, "index.html");
       if (serveStaticFile(indexPath, res)) return;
     }
 
-    // JSON mode: serve the SPA renderer
-    const epicDir = getEpicDir();
-    if (epicDir && fs.existsSync(path.join(epicDir, "spec.json"))) {
-      const spaPath = path.join(UI_DIR, "spec.html");
-      if (serveStaticFile(spaPath, res)) return;
-    }
-
-    // HTML mode: legacy
-    if (!specPath) { res.writeHead(404); res.end("Spec not generated yet"); return; }
-    try {
-      const html = fs.readFileSync(specPath, "utf-8");
-      res.writeHead(200, { "Content-Type": "text/html" });
-      res.end(injectUI(html));
-    } catch (e) {
-      res.writeHead(500);
-      res.end("Cannot read spec: " + e.message);
-    }
+    const spaPath = path.join(UI_DIR, "spec.html");
+    if (serveStaticFile(spaPath, res)) return;
+    res.writeHead(404);
+    res.end("Spec SPA not found");
     return;
   }
 

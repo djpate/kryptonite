@@ -1,6 +1,6 @@
-# Kryptonite Execution Protocol — v2 (Wave-Gate Model)
+# Kryptonite Execution Protocol — Wave-Gate Model
 
-This document defines Phase 12 (execution) for projects with `state.json.execution_protocol_version >= "2.0"`. Older projects continue using v1 (preserved in git history).
+This document defines Phase 12 (execution).
 
 ## State Machine
 
@@ -13,7 +13,7 @@ Each wave has two phases.
 - `complete` — all gates passed, advanced to next wave
 - `blocked` — either (a) a gate returned `status: "blocked"` because its infrastructure (Chrome MCP, service start) is unavailable, or (b) the fix loop exhausted `max_fix_attempts` on a code-defect failure. In both cases the orchestrator pauses and waits for user input.
 
-### Story statuses (v2)
+### Story statuses
 - `pending` — not yet dispatched
 - `in_progress` — Coder dispatched, code being written
 - `merged` — story branch merged into wave-N branch
@@ -178,6 +178,3 @@ A wave is `blocked` when any of the following is true:
 
 **Important:** A gate must report `status: "blocked"` (and must NOT report `pass`) when it could not perform its actual validation. UAT cannot fall back to source-code reading and call itself passed; UX cannot fall back to HTML diffing and call itself passed. The whole point of the gate is to exercise the running system. False passes are worse than blocked statuses because they let the wave advance on a lie.
 
-## Migration from v1
-
-`state.json` without `execution_protocol_version` defaults to v1. To migrate a project mid-flight, set `execution_protocol_version: "2.0"` and update story statuses to v2 enum values. The validator will warn but not fail.

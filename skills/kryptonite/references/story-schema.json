@@ -210,10 +210,6 @@
       "type": "string",
       "description": "SHA of the commit that implemented this story (recorded by the Coder agent)."
     },
-    "test_results": {
-      "type": "object",
-      "description": "Aggregate test results captured by the QA agent."
-    },
     "implemented_by": {
       "type": "string",
       "description": "Identifier of the agent / model that implemented this story."

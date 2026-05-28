@@ -2,7 +2,7 @@
 
 ## 0.4.0 — Wave-Gate Execution + Structured Spec/Plan
 
-This release replaces freeform HTML spec/plan generation with validated JSON, and replaces per-story validation gates with a wave-level gate model. Both are breaking changes for projects mid-execution; see Migration below.
+**Breaking release.** Replaces freeform HTML spec/plan generation with validated JSON. Replaces per-story validation gates with a wave-level gate model. Drops the v0.3.0 protocol entirely — projects mid-execution under 0.3.0 cannot continue on 0.4.0 (finish them on 0.3.0 or restart Phase 12). See Migration below.
 
 ### Spec & plan are now JSON, not HTML
 
@@ -47,32 +47,35 @@ The eval that caught this: with-skill agent ran Phase 12 against a fixture where
 
 ### Modified files
 - `references/story-schema.json` — dropped `dod_validation`, `review_status`, `code_review_status`, `qa_status`; status enum now `pending|in_progress|merged|done|blocked|cancelled|deferred`; added `merged_at`
-- `references/execution-protocol.md` — full rewrite for v2
+- `references/execution-protocol.md` — full rewrite for the wave-gate model
 - `references/plan-schema.json` — added `waves[].user_journeys` (required) and `wave_gate_config` (optional)
-- `agents/orchestrator.md` — full rewrite for v2; explicit blocked-gate handling
-- `scripts/comment-server.js` — JSON API endpoints + JSON detection mode for `/spec`, `/plan`
-- `scripts/validate-gate.js` — protocol-version detection, branches Phase 12 logic on `state.json.execution_protocol_version`
-- `scripts/phase-gates/10.json`, `11.json` — accept `spec.json`/`plan.json` alongside legacy HTML
-- `SKILL.md` — Phase 12 section rewritten for v2
+- `agents/orchestrator.md` — full rewrite; explicit blocked-gate handling
+- `scripts/comment-server.js` — added JSON API endpoints; `/spec` and `/plan` now serve only the Alpine.js SPAs
+- `scripts/validate-gate.js` — Phase 12 check uses the new story status enum
+- `scripts/phase-gates/10.json`, `11.json` — require `spec.json`/`plan.json`
+- `SKILL.md` — Phase 12 section rewritten
+
+### Removed
+- `agents/qa.md`, `agents/reviewer.md`, `agents/code-reviewer.md` — per-story gates replaced by wave gates
+- HTML mode in `comment-server.js` — `/spec` and `/plan` no longer serve `spec.html` / `plan.html`
+- Legacy fallback in `validate-gate.js` — Phase 10/11 gates now require `spec.json`/`plan.json`
+- `--spec-path` and `--plan-path` CLI flags on `comment-server.js` are accepted but ignored; `--state-path` is the only required argument
 
 ### Bug fixes
 - `scripts/ui/assets/nav.html` — phase badge was reading the wrong field name (`currentPhase` → `current_phase`)
 
-### Migration
+### Migration (BREAKING)
 
-Old projects keep working unchanged. Phase 12 detection reads `state.json.execution_protocol_version`:
-- Missing or `"1.0"` → legacy protocol (per-story QA/Reviewer/CodeReview)
-- `"2.0"` → wave-gate protocol
+0.4.0 only supports the wave-gate execution model. Projects mid-execution under 0.3.0 will not run on 0.4.0 — finish them on 0.3.0 or restart Phase 12 under 0.4.0. There is no version-detection fallback.
 
-**To migrate a project mid-flight to v2:**
-1. Set `execution_protocol_version: "2.0"` in `state.json`
-2. Update story statuses from `qa_validation`/`in_review` to `merged` (the closest v2 equivalent for stories that had passed coding but not yet been validated)
-3. Add `user_journeys[]` to each remaining wave in `plan.json` (required by the new plan schema)
-4. Optionally add a `testing` block to each repo in `repos.json` that needs running services for UAT/UX gates. Repos without a testing block will have UAT/UX gates skipped with a warning; spec compliance and code review still run.
+**To upgrade a 0.3.0 project to 0.4.0:**
 
-**To start a fresh project on v2:** nothing to do. New projects default to v2.
+1. **Stories** — drop the per-story validation fields (`dod_validation`, `review_status`, `code_review_status`, `qa_status`, `test_results`) from `state.json` if present. Update any story with status `qa_validation`, `in_review`, or `code_review` to `merged` (or `in_progress` if work hadn't started). The new schema rejects the old values.
+2. **Spec** — replace `spec.html` with `spec.json` validated by `references/spec-schema.json`. Run `node scripts/validate-spec.js spec.json` to confirm.
+3. **Plan** — replace `plan.html` with `plan.json` validated by `references/plan-schema.json`. Add a `user_journeys[]` array to each wave (at least one journey per wave covering its stories) — the validator rejects waves without it. Run `node scripts/validate-plan.js plan.json spec.json` to confirm.
+4. **Repos** — recommended: add a `testing` block to each repo in `repos.json` that needs a running service. Without it, UAT and UX gates skip for that repo (with warnings); spec compliance and code review still run.
 
-The two example projects under `data/` (`agendadeck-launch`, `readiness-mvp`) were not migrated — they're mid-execution under v1 and the protocol-version detection keeps them working as-is.
+**Fresh 0.4.0 projects** — nothing to do. Just describe what you want to build.
 
 ---
 

@@ -28,7 +28,7 @@
             <span class="text-sm font-semibold text-slate-200" x-text="wave.name"></span>
             <span class="badge badge-xs"
               :class="{
-                'badge-success': wave.status === 'complete' || wave.status === 'completed',
+                'badge-success': wave.status === 'complete',
                 'badge-warning': wave.status === 'in_progress' || wave.status === 'gates_running',
                 'badge-error': wave.status === 'blocked',
                 'badge-ghost': wave.status === 'pending' || !wave.status
@@ -43,7 +43,7 @@
           :value="(wave.stories || []).filter(sid => ($store.app.state?.stories || []).find(s => s.id === sid && (s.status === 'done' || s.status === 'merged'))).length"
           :max="(wave.stories || []).length"></progress>
 
-        <!-- Wave Gates (v2 protocol only) -->
+        <!-- Wave Gate status (latest attempt) -->
         <template x-if="wave.gate_runs && wave.gate_runs.length > 0">
           <div class="flex flex-wrap items-center gap-1.5 mb-3 text-[11px]">
             <span class="text-slate-500">Latest gates:</span>
@@ -83,7 +83,7 @@
                     <span class="badge badge-xs"
                       :class="{
                         'badge-success': story?.status === 'done',
-                        'badge-info': story?.status === 'merged' || story?.status === 'in_review' || story?.status === 'qa_validation',
+                        'badge-info': story?.status === 'merged',
                         'badge-warning': story?.status === 'in_progress',
                         'badge-error': story?.status === 'blocked',
                         'badge-ghost': story?.status === 'pending' || !story?.status

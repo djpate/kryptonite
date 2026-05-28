@@ -64,26 +64,13 @@ const errors = [];
 const warnings = [];
 
 // --- Version check ---
-const isLegacyEpic = !epicVersion;
-if (isLegacyEpic) {
-  warnings.push(`Epic has no kryptonite_version — created before version tracking. Some checks for newer fields will be skipped. Add kryptonite_version to epic.json to enable full validation.`);
-} else if (epicVersion !== currentVersion) {
+if (epicVersion && epicVersion !== currentVersion) {
   warnings.push(`Epic was created with kryptonite v${epicVersion} (current: v${currentVersion}). Check references/schema-changelog.json for migration steps if gate checks fail.`);
 }
 
-// --- Protocol version detection ---
-const protocolVersion = state?.execution_protocol_version || "1.0";
-const isProtocolV2 = protocolVersion.startsWith("2.");
-if (isProtocolV2) {
-  warnings.push(`Project uses execution protocol v${protocolVersion} (wave-gate model). Phase 12 checks adapt accordingly.`);
-}
-
 // --- Schema validation ---
-// For legacy epics (no version), use a relaxed schema variant if available
-const relaxedSchemaFile = path.join(gatesDir, `${String(phase).padStart(2, "0")}-legacy.json`);
-const schemaToUse = isLegacyEpic && fs.existsSync(relaxedSchemaFile) ? loadJSON(relaxedSchemaFile) : schema;
 const wrapper = { epic, state, repos };
-const validate = ajv.compile(schemaToUse);
+const validate = ajv.compile(schema);
 const valid = validate(wrapper);
 
 if (!valid) {
@@ -102,24 +89,14 @@ function semanticChecks() {
   if (phase >= 8) checkCrossReferences();
   if (phase >= 9) checkNoCycles();
   if (phase >= 10) {
-    if (!fs.existsSync(path.join(dataPath, "spec.json")) && !fs.existsSync(path.join(dataPath, "spec.html"))) {
-      errors.push(`SEMANTIC filesystem: neither "spec.json" nor "spec.html" found — one is required`);
-    }
+    checkFileExists("spec.json");
     checkFileExists("spec-versions.json");
   }
   if (phase >= 11) {
-    if (!fs.existsSync(path.join(dataPath, "plan.json")) && !fs.existsSync(path.join(dataPath, "plan.html"))) {
-      errors.push(`SEMANTIC filesystem: neither "plan.json" nor "plan.html" found — one is required`);
-    }
+    checkFileExists("plan.json");
     checkWaveOrder();
   }
-  if (phase >= 12) {
-    if (isProtocolV2) {
-      checkWaveStatusV2();
-    } else {
-      checkStoryStatusInActiveWaves();
-    }
-  }
+  if (phase >= 12) checkWaveStatus();
 }
 
 function checkSpikeFiles() {
@@ -202,34 +179,17 @@ function checkWaveOrder() {
   }
 }
 
-function checkWaveStatusV2() {
+function checkWaveStatus() {
   if (!state?.waves) return;
+  const validStoryStatuses = ["pending", "in_progress", "merged", "done", "blocked", "cancelled", "deferred"];
   for (const wave of state.waves) {
     if (wave.status === "in_progress" || wave.status === "gates_running") {
-      // Verify all stories in the wave have valid v2 status
       for (const storyId of wave.stories || []) {
         const story = state.stories.find((s) => s.id === storyId);
         if (!story) continue;
-        const validV2Statuses = ["pending", "in_progress", "merged", "done", "blocked", "cancelled", "deferred"];
-        if (story.status && !validV2Statuses.includes(story.status)) {
-          errors.push(`SEMANTIC stories[${storyId}].status: invalid v2 status "${story.status}" — expected one of ${validV2Statuses.join(", ")}`);
+        if (story.status && !validStoryStatuses.includes(story.status)) {
+          errors.push(`SEMANTIC stories[${storyId}].status: invalid status "${story.status}" — expected one of ${validStoryStatuses.join(", ")}`);
         }
-      }
-    }
-  }
-}
-
-function checkStoryStatusInActiveWaves() {
-  if (!state?.stories || !state?.waves) return;
-  const activeWaves = state.waves.filter((w) => w.status === "in_progress");
-  for (const wave of activeWaves) {
-    for (const storyId of wave.stories || []) {
-      const story = state.stories.find((s) => s.id === storyId);
-      if (!story) continue;
-      if (!story.status) {
-        errors.push(`SEMANTIC stories[${storyId}].status: missing status field but wave "${wave.id}" is in_progress — must be set to a valid state machine value`);
-      } else if (story.status === "pending") {
-        errors.push(`SEMANTIC stories[${storyId}].status: is "pending" but wave "${wave.id}" is in_progress — should be "in_progress" or later once wave execution begins`);
       }
     }
   }

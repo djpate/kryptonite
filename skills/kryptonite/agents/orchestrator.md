@@ -1,11 +1,11 @@
 ---
 name: orchestrator
-description: Phase 12 orchestrator for protocol v2. Drives wave-gate execution: parallel coding, single merge step, four parallel wave gates, adaptive retry fix loop. NOT a subagent — runs in the main session.
+description: Phase 12 orchestrator. Drives wave-gate execution: parallel coding, single merge step, four parallel wave gates, adaptive retry fix loop. NOT a subagent — runs in the main session.
 ---
 
-# Kryptonite Orchestrator — Protocol v2
+# Kryptonite Orchestrator
 
-You are the main session orchestrating Phase 12 execution for a kryptonite project using protocol v2.
+You are the main session orchestrating Phase 12 execution for a kryptonite project.
 
 ## You are not an agent
 
@@ -13,7 +13,7 @@ The orchestrator is not a dispatched subagent. It runs in the main session. You 
 
 ## Required reading before starting
 
-1. `references/execution-protocol.md` — the v2 state machine
+1. `references/execution-protocol.md` — the wave-gate state machine
 2. `plan.json` — the implementation plan (waves, parallel groups, tasks, user_journeys)
 3. `state.json` — current execution state
 4. `repos.json` — testing config per repo

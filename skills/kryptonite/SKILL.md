@@ -214,48 +214,58 @@ Only Phase 9 dispatches subagents. All communication is hub-and-spoke: agents ne
 | Agent | Prompt | Handles | Dispatched When |
 |-------|--------|---------|-----------------|
 | **Designer** | `agents/designer.md` | Visual mockups: propose options, iterate, produce HTML + screenshots | During Phase 5 for visual stories |
-| **Researcher** | `agents/researcher.md` | Spike tasks: investigate options, produce decision documents | Wave 0 execution |
-| **Coder** | `agents/coder.md` | Feature implementation: write code in worktree (no tests), commit to story branch | Feature stories in Waves 1+ |
-| **QA** | `agents/qa.md` | DOD validation + UAT: run automated checks and per-wave user flow testing | After Coder reports DONE (DOD mode) and after wave completion (UAT mode) |
-| **Reviewer** | `agents/reviewer.md` | Spec compliance: acceptance criteria met, nothing extra, nothing missing | After QA passes ALL checks |
-| **Code Reviewer** | `agents/code-reviewer.md` | Code quality: runs /code-review, flags complexity and security issues | After Reviewer approves |
+| **Researcher** | `agents/researcher.md` | Spike tasks: investigate options, produce decision documents | Wave 0 execution; also dispatched at fix-loop attempt 2 with the original issue |
+| **Coder** | `agents/coder.md` | Feature implementation: write code in worktree, commit to story branch | Phase A of every wave |
+| **Wave UAT** | `agents/wave-uat-agent.md` | Walks `user_journeys[]` via Chrome MCP, captures screenshots, asserts each step | Phase B of every wave |
+| **Wave UX** | `agents/wave-ux-agent.md` | Compares implementation screenshots to approved mocks for stories with `has_mock: true` | Phase B of every wave |
+| **Wave Spec Compliance** | `agents/wave-spec-compliance-agent.md` | Verifies each story's `acceptance_criteria` (catches what UAT doesn't exercise) | Phase B of every wave |
+| **Wave Code Review** | `agents/wave-code-review-agent.md` | Full diff review (security, correctness, error handling, dead code, performance) | Phase B of every wave |
 | **Spec Critic** | `agents/spec-critic.md` | Review spec for gaps, contradictions, weak DODs | After Phase 10 (spec generation) |
 | **Plan Critic** | `agents/plan-critic.md` | Review plan for conflicts, ordering issues, infra gaps | After Phase 11 (plan generation) |
 
 ### Orchestrator Responsibilities (read `agents/orchestrator.md`)
 
 1. During Phases 1-11, the main session IS the interviewer — follow `agents/interviewer.md` instructions directly
-2. After plan approval, execute waves by dispatching Researcher/Coder/QA/Reviewer/Code Reviewer
+2. In Phase 12, drive the wave-gate execution loop (read `references/execution-protocol.md` for the full state machine)
 3. Enforce dependency gate before every dispatch
-4. Route fix feedback: QA failure → Coder, Reviewer rejection → Coder
-5. Update state.json after every agent completes
-6. Escalate to user after 3 failed attempts on same story
+4. Dispatch the four wave gates in parallel after each wave merges; pause for the user when any gate returns `blocked`
+5. Route fix feedback through the adaptive retry strategies (same Coder + more context → Researcher + new Coder → pause for user)
+6. Update state.json after every agent completes — never trust agent reports alone
 
-### Execution Loop Per Story
+### Execution Loop Per Wave
 
-Phase 12 uses **worktree isolation**: Coders write code in parallel on isolated branches without running tests. The orchestrator merges branches one at a time and runs QA serially to avoid database conflicts.
+Phase 12 splits each wave into two phases (full state machine in `references/execution-protocol.md`):
 
+**Phase A — Code Production**
 ```
-Orchestrator checks dependencies → all done?
-  ↓ yes
-Dispatch Coder in worktree (NO tests, isolated branch)
-  ↓
-Coder reports DONE with branch name
-  ↓
-Orchestrator merges branch into working branch (serial, one at a time)
-  ↓ (if conflict → re-dispatch Coder on main to resolve)
-Run migrations, dispatch QA → run all DOD validations
-  ↓
-QA ALL_PASS? → Dispatch Reviewer
-QA HAS_FAILURES? → Re-dispatch Coder on main with failure details
-  ↓
-Reviewer APPROVED? → Dispatch Code Reviewer
-Reviewer NEEDS_FIXES? → Re-dispatch Coder on main with fix list
-  ↓
-Code Reviewer APPROVED? → Update state, mark "done", cleanup branch
-Code Reviewer NEEDS_FIXES? → Re-dispatch Coder on main with fix list
-  ↓
-(Loop until approved or escalate after 3 attempts)
+Create wave-N branch + worktree
+For each parallel_group in wave:
+  For each story in group (parallel within group):
+    Create story branch wave-N/US-XXX + story worktree
+    Dispatch Coder → writes code, commits, reports DONE
+  Merge story branches sequentially into wave-N (--no-ff, conflict-aware)
+  Cleanup story worktree + branch; story.status = "merged"
+```
+
+**Phase B — Wave Validation**
+```
+Merge wave-N into main worktree's branch (--no-ff)
+Cleanup wave-N worktree + branch
+Start services per repos.json[].testing
+Set wave.status = "gates_running"
+
+Loop attempt = 1..max_fix_attempts:
+  Dispatch UAT, UX, Spec Compliance, Code Review in parallel
+  If any gate.status == "blocked":
+    Stop services, set wave.status = "blocked", surface to user, BREAK
+  If all gates pass:
+    Stop services, mark all wave stories status = "done", wave.status = "complete", BREAK
+  Otherwise (one or more "fail"):
+    For each open issue with severity in (critical, high):
+      attempt 1 → re-dispatch Coder with original story + AC + gate report
+      attempt 2 → spawn Researcher for root cause, then new Coder with findings
+      attempt 3 → pause for user (fix manually | defer | replan | abort)
+    Re-merge fixes into main worktree's branch; restart services if needed
 ```
 
 ---
@@ -406,7 +416,7 @@ Each repo entry gives agents enough context to:
 - Know WHAT code lives there (`description`)
 - Know HOW to build/run/test it (`stack`, `run`, `test`)
 
-**Stories reference repos by name** via the `repo` field (see story schema). The QA agent resolves `${APP_URL}` per-repo using the `run` command's port.
+**Stories reference repos by name** via the `repo` field (see story schema). The wave gate agents resolve `${APP_URL}` per-repo from `repos.json[].testing.app_url`.
 
 ### Cross-Repo Story Auto-Split
 
@@ -549,7 +559,7 @@ Produce a comprehensive project specification including:
 
 Create the epic directory and files at `<skill-path>/data/{PROJECT}/{EPIC}/`:
 - **epic.json** — epic context (description, parties, tech, design direction). See schema in File Structure section above.
-- **state.json** — stories array (each conforming to story-schema.json + execution fields: `has_mock`, `mock_phase` (`"foundational"` | `"detail"`), `mock_approved`, `amended`, `amendment_history`, `wave`, `status`, `commit_sha`, `dod_validation`, `test_results`, `implemented_by`, `started_at`, `completed_at`) and `waves` array.
+- **state.json** — stories array (each conforming to story-schema.json + execution fields: `has_mock`, `mock_phase` (`"foundational"` | `"detail"`), `mock_approved`, `amended`, `amendment_history`, `wave`, `parallel_group`, `status`, `commit_sha`, `merged_at`, `implemented_by`, `started_at`, `completed_at`, `attempts`) and `waves` array (each wave with `id`, `name`, `status`, `branch`, `merged_to_main_at`, `gate_runs[]`).
 - Update `<skill-path>/data/active.json` to map this project to the new epic slug.
 
 ### Generate Branded HTML
@@ -708,11 +718,7 @@ Wait for approval. Address comments. Once approved, move to execution.
 
 ## Phase 12 — Execution
 
-New projects use **protocol v2** (wave-gate model). Old projects continue with v1 (preserved in git history).
-
-**Set protocol version when entering Phase 12:** if `state.json.execution_protocol_version` is missing, set it to `"2.0"`.
-
-### v2 in one paragraph
+### In one paragraph
 
 Phase 12 has two phases per wave. **Phase A** runs Coders in parallel (per-story worktrees), then merges story branches into the wave branch with NO validation between merges. **Phase B** merges the wave branch into the main worktree, starts services per `repos.json[].testing`, and runs four gate agents in parallel: UAT, UX, spec compliance, code review. If any fail, an adaptive fix loop runs (same Coder + context → Researcher + new Coder → pause for user). When all four gates pass, the wave is complete and all its stories become `done`.
 
@@ -759,46 +765,54 @@ node <skill-path>/scripts/comment-server.js --visual-only --port 3847
 
 ### State Machine
 
-Stories follow a strict state machine defined in `references/execution-protocol.md`. The key insight: **the orchestrator reads state.json to decide what to do next — it does NOT trust agent reports alone.**
+Stories and waves follow a state machine defined in `references/execution-protocol.md`. The orchestrator reads state.json to decide what to do next — it does NOT trust agent reports alone.
 
+**Story states:**
 ```
-pending → in_progress → qa_validation → in_review → done
-                      ↗ (QA fails)      ↗ (Reviewer rejects)
-          in_progress ←←←←←←←←←←←←←←←←
-                      → blocked
+pending → in_progress → merged → done
+                                ↘ blocked   (wave gate failed and user deferred this story)
 pending → cancelled / deferred
 ```
 
-**Illegal transitions (never allowed):**
-- `in_progress → done` (skips QA)
-- `qa_validation → done` (skips Reviewer)
-- Any → `done` unless `dod_validation.all_passed === true` AND `review_status === "approved"`
+**Wave states:**
+```
+pending → in_progress (Phase A coding) → gates_running (Phase B gates) → complete
+                                                                       ↘ blocked   (gate returned blocked, or fix loop exhausted)
+```
+
+**Illegal transitions:**
+- `in_progress → done` directly (a story must reach `merged` first, then promotes to `done` only when its wave reaches `complete`)
+- A wave reaching `complete` while any of its four gates has status `fail` or `blocked` in the latest gate run
+
+**Invariants (checked before every state write):**
+1. A story's `done` status only sets when its wave's status is `complete`
+2. A wave only reaches `complete` when all four gate reports in the latest gate run have `status: "pass"`
+3. A wave with any gate `status: "blocked"` pauses for the user — no fix loop, no advance
+4. A story cannot enter `in_progress` until all its dependencies have `merged` or `done` status
 
 ### What Gets Tracked Per Story
 
 Every story conforms to `references/story-schema.json` plus these execution-time fields:
 - `wave` / `parallel_group` — wave assignment from Phase 11
-- `status` — `pending` / `in_progress` / `qa_validation` / `in_review` / `done` / `blocked` / `cancelled` / `deferred`
+- `status` — `pending` / `in_progress` / `merged` / `done` / `blocked` / `cancelled` / `deferred`
 - `commit_sha` — from Coder's report
-- `dod_validation` — `{ all_passed, items_passed, items_total, last_run }` — written by QA
-- `review_status` — `null` / `"approved"` / `"needs_fixes"` — written by Reviewer
-- `test_results` — `{ passed, summary }`
+- `merged_at` — ISO timestamp when the story branch landed in the wave branch
 - `implemented_by` — agent model used
 - `started_at` / `completed_at` — timestamps
 - `amended` / `amendment_history` — tracks mid-execution changes
-- `attempts` — number of QA/Review cycles (escalate after 3)
+- `attempts` — number of fix-loop cycles for this story across all gates (escalates per the adaptive retry policy)
 
-Each DOD item also gains a `result` field after validation: `{ passed, actual, validated_at }`
+### What Gets Tracked Per Wave
 
-**Invariants (checked before every state write):**
-1. Cannot mark `done` without `dod_validation.all_passed === true`
-2. Cannot mark `done` without `review_status === "approved"`
-3. Cannot enter `in_review` without `dod_validation.all_passed === true`
-4. Cannot enter `in_progress` without all dependencies met
+Per `references/execution-protocol.md`, each wave in `state.json.waves[]` includes:
+- `status` — `pending` / `in_progress` / `gates_running` / `complete` / `blocked`
+- `branch` — the wave branch name
+- `merged_to_main_at` — ISO timestamp
+- `gate_runs[]` — immutable history of gate attempts. Each entry contains the four gate statuses (`pass`/`fail`/`blocked`) with `report_path`, plus `issues[]` with `fix_attempts[]` for adaptive retry tracking
 
 ### Dashboard
 
-The `/dashboard` route renders a live view of state.json: progress bar, wave breakdown, DOD checklists, commit SHAs, test indicators, agent attribution, and amendment markers.
+The `/dashboard` route renders a live view of state.json: progress bar, wave breakdown, latest gate statuses (UAT/UX/spec compliance/code review with pass/fail/blocked), commit SHAs, agent attribution, and amendment markers.
 
 ---
 
