@@ -1,461 +1,171 @@
-# Execution Protocol (Phase 12)
+# Kryptonite Execution Protocol — v2 (Wave-Gate Model)
 
-Full execution procedures for the orchestrator during Phase 12.
+This document defines Phase 12 (execution) for projects with `state.json.execution_protocol_version >= "2.0"`. Older projects continue using v1 (preserved in git history).
 
-## State Machine (ENFORCED)
+## State Machine
 
-Stories follow a strict state machine. **Illegal transitions are not allowed regardless of what agents report.**
+Each wave has two phases.
 
-```
-LEGAL TRANSITIONS:
-  pending       → in_progress    (when dispatched to Coder)
-  in_progress   → qa_validation  (when Coder reports DONE — automatic, orchestrator dispatches QA)
-  qa_validation → in_progress    (when QA reports HAS_FAILURES — back to Coder)
-  qa_validation → in_review      (when QA reports ALL_PASS — only transition if dod_validation.all_passed === true)
-  in_review     → in_progress    (when Reviewer reports NEEDS_FIXES — back to Coder)
-  in_review     → code_review    (when Reviewer reports APPROVED — dispatch Code Reviewer)
-  code_review   → in_progress    (when Code Reviewer reports NEEDS_FIXES — back to Coder)
-  code_review   → done           (when Code Reviewer reports APPROVED)
-  pending       → cancelled
-  pending       → deferred
-  in_progress   → blocked        (when Coder reports BLOCKED)
-  in_progress   → cancelled
+### Wave statuses
+- `pending` — not yet started
+- `in_progress` — Phase A coding underway
+- `gates_running` — Phase B validation underway
+- `complete` — all gates passed, advanced to next wave
+- `blocked` — stuck after max_fix_attempts; user input required
 
-ILLEGAL (never allowed):
-  in_progress   → done           (SKIPS QA — forbidden)
-  qa_validation → done           (SKIPS Reviewer + Code Reviewer — forbidden)
-  in_review     → done           (SKIPS Code Reviewer — forbidden)
-  pending       → done           (SKIPS everything — forbidden)
-  ANY           → done           (unless dod_validation.all_passed === true AND review_status === "approved" AND code_review_status === "approved")
-```
+### Story statuses (v2)
+- `pending` — not yet dispatched
+- `in_progress` — Coder dispatched, code being written
+- `merged` — story branch merged into wave-N branch
+- `done` — wave passed all gates; set retroactively when wave completes
+- `blocked` — wave failed gates and user chose to defer this story
+- `cancelled` — user cancelled
+- `deferred` — moved to a later wave
 
-### Invariants (checked before EVERY state write)
-
-Before writing any status change to state.json, verify these invariants. If ANY invariant is violated, **HALT and do not write the change**:
+## Phase A — Code Production
 
 ```
-INVARIANT 1: Cannot mark "done" without passing DOD
-  story.status === "done" REQUIRES:
-    story.dod_validation !== null
-    story.dod_validation.all_passed === true
-    story.dod_validation.items_passed === story.dod_validation.items_total
-
-INVARIANT 2: Cannot mark "done" without review approval
-  story.status === "done" REQUIRES:
-    story.review_status === "approved"
-
-INVARIANT 3: Cannot mark "done" without code review approval
-  story.status === "done" REQUIRES:
-    story.code_review_status === "approved"
-
-INVARIANT 4: Cannot enter "in_review" without passing QA
-  story.status === "in_review" REQUIRES:
-    story.dod_validation.all_passed === true
-
-INVARIANT 5: Cannot enter "code_review" without Reviewer approval
-  story.status === "code_review" REQUIRES:
-    story.review_status === "approved"
-
-INVARIANT 6: Cannot dispatch without dependencies met
-  story.status === "in_progress" REQUIRES:
-    ALL story.dependencies have status "done" OR "cancelled"/"deferred"
+1. Set wave.status = "in_progress"
+2. Create branch wave-N from current main worktree's branch
+3. Create wave-N worktree at ../wave-N
+4. For each parallel_group in wave.parallel_groups:
+     For each story in group (parallel within group):
+       - Create branch wave-N/US-XXX from wave-N
+       - Create story worktree at ../wave-N-US-XXX
+       - Dispatch Coder
+       - Coder writes code + commits in story worktree
+       - Coder reports DONE
+     After all coders in group are DONE:
+       - For each story branch:
+           - Merge story branch → wave-N (merge commit, --no-ff)
+           - On conflict: dispatch Coder back to story worktree to resolve, retry
+           - Remove story worktree, delete story branch
+           - story.status = "merged"
+5. When all groups complete: Phase A done
 ```
 
-If the orchestrator finds itself about to violate an invariant, it means something went wrong upstream. **Stop. Do not proceed. Report the illegal state.**
-
-### Decision Logic (read state, not agent reports)
-
-The orchestrator decides what to do next by READING state.json — not by trusting what an agent said:
+## Phase B — Wave Validation
 
 ```
-For each story in the current wave:
-  READ story.status from state.json
+1. Merge wave-N → main worktree's working branch (merge commit)
+2. Remove wave-N worktree, delete wave-N branch
+3. Read repos.json for testing config of wave's affected repos
+4. Start services per repos[].testing.start_command
+5. Wait for ready_signal or health_check
+6. Set wave.status = "gates_running"
 
-  if status === "pending" AND dependencies met:
-    → dispatch Coder, set status = "in_progress"
+7. Loop attempt = 1..max_fix_attempts:
+     a. Determine gates to run:
+          - First attempt: all four (UAT, UX, spec_compliance, code_review)
+          - Subsequent: only previously-failed gates + any whose validated files were touched by the latest fix
+     b. Dispatch the four gate agents in parallel
+     c. Collect reports, write to wave-N/gates/<gate>-<attempt>.json
+     d. If all gates pass:
+          - Stop services
+          - Mark all wave stories status: "done"
+          - Set wave.status = "complete"
+          - Break
+     e. Collect open issues across failed gates (deduped per gate's dedup_key)
+     f. For each open issue:
+          - strategy = retry_strategy(len(issue.fix_attempts))
+          - if strategy == "pause_for_user":
+              surface to user, wait for response: fix manually | defer | replan | abort
+          - else:
+              dispatch fix per strategy
+              merge fix → main worktree's branch
+              if changed_files affects services:
+                  restart affected services
 
-  if status === "in_progress" AND Coder has reported:
-    → set status = "qa_validation", dispatch QA
-
-  if status === "qa_validation":
-    READ story.dod_validation from state.json
-    if dod_validation.all_passed === true:
-      → set status = "in_review", dispatch Reviewer
-    if dod_validation.all_passed === false:
-      → set status = "in_progress", re-dispatch Coder with failures
-    if dod_validation.status === "INFRA_DEGRADED":
-      → re-run infrastructure setup for affected repo
-      → re-dispatch QA (do NOT change story status, do NOT increment attempts)
-
-  if status === "in_review":
-    READ story.review_status from state.json
-    if review_status === "approved":
-      → set status = "code_review", dispatch Code Reviewer
-    if review_status === "needs_fixes":
-      → set status = "in_progress", re-dispatch Coder with fix list
-
-  if status === "code_review":
-    READ story.code_review_status from state.json
-    if code_review_status === "approved":
-      → set status = "done"
-    if code_review_status === "needs_fixes":
-      → set status = "in_progress", re-dispatch Coder with fix list
-
-  if status === "done":
-    → skip (already complete)
-
-  if status === "blocked":
-    → escalate (count attempts, halt after 3)
+8. If wave.status != "complete" after max attempts:
+     surface to user for decision
 ```
 
----
+## Adaptive Retry Strategies
 
-## Dependency Gate
+| Attempt | Strategy | What happens |
+|---------|----------|--------------|
+| 1 | `same_coder_more_context` | Re-dispatch original Coder with story + AC + gate report excerpt + screenshots + suggested fix |
+| 2 | `different_coder_with_spike` | Spawn Researcher to investigate root cause; spawn new Coder with findings + original issue |
+| 3 | `pause_for_user` | Surface issue + history; user picks: fix \| defer \| replan \| abort |
 
-Before dispatching ANY story, the orchestrator MUST verify:
+`max_fix_attempts` is configurable in `plan.wave_gate_config.max_fix_attempts` (default 3).
 
-```
-For story X about to be dispatched:
-  1. Read X.dependencies from state.json
-  2. For each dependency ID:
-     - Check state.json: is that story's status === "done"?
-     - If ANY dependency is NOT done (and not "cancelled"/"deferred") → BLOCK. Do not dispatch X.
-     - If a dependency is "cancelled" or "deferred" → evaluate whether X actually needs it. If yes, BLOCK and escalate to user. If no, treat as satisfied.
-  3. Only when ALL dependencies are satisfied → dispatch X
-```
+## Service Lifecycle
 
-This is a hard gate, not a suggestion. A story with unmet dependencies must not be dispatched regardless of wave assignment. If a wave contains stories with inter-dependencies, they run in dependency order within that wave.
+The orchestrator reads `repos.json[].testing` to know how to start/stop services. It is infrastructure-agnostic (works with marengo, docker-compose, foreman, npm, anything).
 
-## Spike Execution (Wave 0)
+| When | Action |
+|------|--------|
+| Phase B start | `start_command` for each affected repo, wait for ready |
+| Between fix attempts | If fix changed code files: stop+start affected service |
+| Phase B complete | `stop_command` for each (skip if not provided) |
+| User aborts | `stop_command` for all running services |
 
-Spikes execute first. For each spike:
-1. Dispatch **Researcher** agent (`agents/researcher.md`) with the spike's acceptance criteria
-2. Researcher produces findings document at the path specified in the DOD
-3. Dispatch **QA** agent to validate via `file_exists` method
-4. If the Researcher's findings include implications for dependent stories, update those stories' acceptance criteria and DOD in state.json before proceeding to Wave 1
+If a repo has no `testing` block:
+- UAT skipped for journeys touching it (warning logged)
+- UX skipped for stories in it with `has_mock: true`
+- Spec compliance: AC items requiring chrome_mcp/curl auto-fail with reason "no testing config"; code_inspection/test_suite still run
+- Code review unaffected
 
-## Pre-Wave Infrastructure Setup
+## Worktree Cleanup Guarantees
 
-Before dispatching ANY Coder agent for a wave, the orchestrator verifies all repos involved are in a working state. This prevents QA failures caused by broken infrastructure from being misattributed to Coder bugs.
+| Trigger | Action |
+|---------|--------|
+| Story merged | Remove story worktree + delete story branch |
+| Wave Phase A complete | Remove wave-N worktree + delete wave-N branch |
+| Wave complete | (already cleaned) |
+| User aborts | Remove all non-main worktrees, record orphans in state.json |
+| Cleanup command | Force-remove orphaned worktrees |
 
-**Trigger:** Runs once at the start of each wave (including Wave 1). Also re-runs if a wave is retried or if QA reports `INFRA_DEGRADED`.
+If `git worktree remove` fails, record path in `state.json.orphaned_worktrees[]` and continue. Cleanup command sweeps these later.
 
-**Process (for each repo involved in the wave, serial):**
+## Issue Tracking
 
-1. **Install dependencies** (if lockfile newer than installed or vendor/node_modules missing)
-2. **Check port availability** — if port from `repo.run` is in use by another process, report conflict
-3. **Start the app** — run `repo.run` in background, poll port (up to 30s) until it responds
-4. **Run migrations** — determine command from stack (Rails: `bin/rails db:migrate RAILS_ENV=development && bin/rails db:migrate RAILS_ENV=test`, Prisma: `npx prisma migrate deploy`, Django: `python manage.py migrate`)
-5. **Seed data** — if `testing_notes` specifies seed commands (lines starting with `Seed:` or `seed:`), run them
-6. **Smoke check** — HTTP GET to `localhost:{port}/`, expect any 2xx/3xx response
+Issues stored in `state.json.waves[N].gate_runs[]`. Each gate_run is immutable history.
 
-**On failure (any step):**
-- Do NOT dispatch any Coder agents
-- Do NOT change any story statuses
-- Report to user:
-  ```
-  INFRASTRUCTURE SETUP FAILED — Wave {N} cannot start.
-
-  Repo: {repo_name}
-  Step: {which step failed}
-  Error: {stderr or timeout message}
-  Command: {exact command that failed}
-  Path: {repo.path}
-
-  Action needed: fix the infrastructure issue and resume.
-  ```
-- Set `state.json` → `infrastructure.wave_{N}.status = "failed"` with error details
-- HALT execution
-
-**State tracking:** Record setup state in state.json:
 ```json
 {
-  "infrastructure": {
-    "wave_1": {
-      "status": "ready",
-      "verified_at": "ISO timestamp",
-      "repos": {
-        "api": { "port": 3000, "pid": 12345, "migrations": "current", "seeded": true }
-      }
-    }
-  }
+  "attempt": 1,
+  "started_at": "ISO",
+  "completed_at": "ISO",
+  "uat": { "status": "fail", "report_path": "wave-2/gates/uat-1.json" },
+  "ux": { "status": "pass", "report_path": "wave-2/gates/ux-1.json" },
+  "spec_compliance": { "status": "pass", "report_path": "wave-2/gates/spec-compliance-1.json" },
+  "code_review": { "status": "pass", "report_path": "wave-2/gates/code-review-1.json" },
+  "issues": [{
+    "id": "ISSUE-001",
+    "gate": "uat",
+    "dedup_key": "UJ-001:3",
+    "description": "Submit button not visible",
+    "severity": "critical",
+    "affected_stories": ["US-005"],
+    "fix_attempts": [{
+      "attempt": 1,
+      "strategy": "same_coder_more_context",
+      "coder_id": "anthropic-sonnet",
+      "started_at": "ISO",
+      "completed_at": "ISO",
+      "result": "fixed",
+      "commit_sha": "abc123"
+    }],
+    "status": "resolved"
+  }]
 }
 ```
 
-## Parallel Agent Dispatch (Waves 1+)
+Issue IDs are stable within a wave. Re-runs append `fix_attempts[]`. Issues never re-use IDs.
 
-For each wave, execute stories that can run in parallel simultaneously:
+## Pass criteria
 
-1. **Dependency check** — for each story in the wave's parallel group, verify all dependencies are "done" in state.json. Skip any that aren't ready yet.
-2. **Dispatch Coder** agents in parallel (`agents/coder.md`) — one per story that passes the dependency check. Each Coder is dispatched with `isolation: "worktree"` and mode `worktree`. **Include the story's `repo` field** so the Coder knows which repo to work in (path, stack, run/test commands from `epic.json`). Coders do NOT run tests in worktree mode.
-3. **Serial merge + test** (first-done-first-merged): as each Coder reports DONE, the orchestrator merges its branch and runs the verification pipeline serially:
-   - **Merge**: `git merge --no-ff krypt/{epic-slug}/{story-id}` into the working branch
-   - **If merge conflict**: abort merge, re-dispatch Coder on main with conflict details (mode: `fix_on_main`)
-   - **Run migrations**: appropriate `db:migrate` for the repo's stack
-   - **Dispatch QA** (`agents/qa.md`) — runs every DOD item's validation command. ALL must pass.
-   - **Dispatch Reviewer** (`agents/reviewer.md`) — checks spec compliance (acceptance criteria met, nothing extra)
-   - **Dispatch Code Reviewer** (`agents/code-reviewer.md`) — runs /code-review, checks quality
-4. **QA is a hard gate** — if any DOD validation fails:
-   - QA reports HAS_FAILURES with details (expected vs actual per item)
-   - Orchestrator re-dispatches Coder on main (mode: `fix_on_main`) with the failure details
-   - After Coder fixes, re-dispatch QA
-   - Repeat until QA reports ALL_PASS
-   - Only THEN dispatch Reviewer
-5. **Reviewer is a hard gate** — if NEEDS_FIXES:
-   - Orchestrator re-dispatches Coder on main with the fix list
-   - After Coder fixes, re-dispatch QA (full DOD re-check), then Reviewer
-   - Repeat until Reviewer reports APPROVED
-   - Only THEN dispatch Code Reviewer
-6. **Code Reviewer is a hard gate** — if NEEDS_FIXES:
-   - Orchestrator re-dispatches Coder on main with the quality fix list
-   - After Coder fixes, re-dispatch QA (re-check), then Reviewer (re-check), then Code Reviewer
-   - Repeat until Code Reviewer reports APPROVED
-7. **Update state** only after ALL gates pass:
-   - Set status to "done"
-   - Record commit SHA (from Coder's last commit in the story's repo)
-   - Record test results (pass/fail + details per DOD item)
-   - Record which agent implemented it
-   - Record DOD validation results
-   - **Cleanup**: delete the story's worktree branch
-   - **Write state** (with backup protocol — no git commit)
-8. **Sequential stories** within a wave run after their dependencies finish
+A wave is `complete` when:
+- All stories in the wave have status `merged`
+- The latest gate_run has all four gate statuses: `pass` (or `skipped` for those without testing config — but that produces a warning, not a pass)
+- No open critical or high severity issues
 
-## Worktree Isolation Protocol
+A wave is `blocked` when:
+- After `max_fix_attempts` rounds, at least one critical/high issue is still open
+- User has been paused at least once and chose not to fix/defer
 
-### Why
+## Migration from v1
 
-Parallel Coder agents sharing one repo corrupt each other's database via
-migrations and concurrent spec runs. Worktree isolation separates the coding
-phase (parallel, no tests) from the testing phase (serial, on main).
-
-### Rules
-
-1. ALL Coder agents in a parallel group are dispatched with worktree isolation
-2. Coders do NOT run tests, migrations, static checks, or anything that touches shared state
-3. Coders ONLY write code and commit to their isolated branch
-4. The orchestrator merges branches one at a time into the working branch
-5. QA runs on main after each merge (serial — only one QA at a time)
-6. Fix cycles happen on main (NOT back in the worktree)
-
-### Merge Order
-
-If the Plan Critic produced a `recommended_merge_order` for this parallel group,
-use it as the PRIMARY ordering. When multiple Coders finish simultaneously, merge
-in the recommended order (not first-done-first-merged).
-
-Priority chain: recommended_merge_order > dependency order > priority > story ID.
-
-If no recommendation exists for a group, fall back to first-done-first-merged with
-tiebreaker: dependency order > priority > story ID.
-
-When a merge order is specified, the orchestrator waits for the first-in-order story
-to finish before merging ANY story in that ordered pair. Stories without ordering
-constraints still merge first-done-first-merged.
-
-### State Tracking
-
-Per-story fields added during execution:
-- `branch`: `krypt/{epic-slug}/{story-id}`
-- `coding_complete`: true/false (set true when Coder reports DONE, before merge)
-- `merge_status`: `pending` | `merged` | `conflict`
-
-The state machine transitions remain unchanged. `in_progress → qa_validation`
-still happens when QA is dispatched — which is now post-merge, not post-code.
-
-### Single-Story Parallel Groups
-
-If a parallel group contains only ONE story, worktree isolation is still used
-for consistency. The merge is trivially fast-forward.
-
-### Coder Feedback Formats
-
-When QA fails post-merge, re-dispatch Coder with:
-```json
-{
-  "feedback_type": "qa_failure",
-  "story_id": "US-005",
-  "mode": "fix_on_main",
-  "repo": { "path": "...", "test": "bundle exec rspec" },
-  "failures": [
-    {
-      "description": "POST /tickets returns 201",
-      "method": "test_suite",
-      "expected": "exit 0",
-      "actual": "exit 1",
-      "error_detail": "NoMethodError: undefined method 'priority' for Ticket...",
-      "spec_file": "spec/requests/tickets_spec.rb:45",
-      "possible_interaction": null
-    }
-  ],
-  "merged_before": ["US-003", "US-004"],
-  "instruction": "Fix the failing specs. You are on the main branch. Run only the specific failing specs to verify."
-}
-```
-
-When a merge conflict occurs, re-dispatch Coder with:
-```json
-{
-  "feedback_type": "merge_conflict",
-  "story_id": "US-005",
-  "mode": "fix_on_main",
-  "repo": { "path": "..." },
-  "conflicting_files": ["db/migrate/20260526_add_priority.rb", "app/models/ticket.rb"],
-  "conflict_context": "US-003 (merged earlier) added a 'status' column to tickets. Your migration also modifies the tickets table.",
-  "your_branch_diff": "... (summary of what you changed)",
-  "instruction": "Apply your changes manually on top of current main. Do not merge — implement directly."
-}
-```
-
-## Commit Protocol
-
-### Coder Commits (in story's repo)
-The Coder agent commits in the story's assigned repo:
-- `feat({story-id}): {description}` — initial implementation
-- `fix({story-id}): address QA feedback` — after QA failure
-- `fix({story-id}): address review feedback` — after Reviewer rejection
-- `feat({story-id}): re-apply after conflict with {other-story}` — after merge conflict resolution
-
-### State Tracking (no git commits)
-State changes are persisted via file writes to the plugin data folder (`<skill-path>/data/{PROJECT}/{EPIC}/state.json`). The orchestrator does NOT commit state files to any repo. The backup protocol (copy to `.bak` before every write) provides recovery instead of git history.
-
-### Multi-Repo
-Each repo gets its own commits independently. `state.json` records the commit SHA from each repo — that's the only cross-repo link. No git-level coordination (tags, submodules, etc.).
-
-## Automated DOD Validation
-
-For each DOD item on a story, run its validation:
-
-```
-For each item in story.definition_of_done:
-  method = item.validation.method
-  command = item.validation.command
-  expected = item.validation.expect
-
-  if method === "curl":
-    Run the curl command, capture output
-    Assert output matches expected (status code, body pattern, etc.)
-
-  if method === "chrome_mcp":
-    Execute the structured command steps (see DOD Validation Methods in SKILL.md)
-    Assert all steps pass
-
-  if method === "test_suite":
-    Run the test command
-    Assert exit code 0 and output contains expected pattern
-
-  if method === "file_exists":
-    Check the file path exists and is non-empty
-
-  Record: { item, passed: true/false, actual_output, expected }
-```
-
-A story is NOT done until every DOD item's validation passes. No exceptions.
-
-## Between Waves
-
-After a wave completes:
-
-**Scoped regression checks** (not full regression — that's too expensive):
-- Re-run DOD validations for stories that share modified files with the just-completed wave
-- Re-run DOD validations for stories that have dependencies in the just-completed wave
-- Full regression (all stories) only happens at final verification
-
-Rationale: full regression after every wave causes O(n^2) validation cost as epics grow. Scoped checks catch real regressions while keeping execution fast.
-
-Additional between-wave steps:
-- Run the full test suite (per repo) to verify no regressions
-- Update the dashboard (state.json is the source of truth)
-- Show a wave completion summary with DOD pass/fail per story
-- If a regression is detected (previously passing DOD now fails), STOP and fix before continuing
-
-**Infrastructure re-verification:**
-- Re-run smoke check for all repos in the upcoming wave
-- If any app crashed during the previous wave, restart it
-- Run any new migrations from previous-wave stories
-- Do NOT re-install deps or re-seed (only on Wave 1 or after explicit reset)
-
-- Then proceed to **UAT** before the next wave
-
-## User Acceptance Testing (Per Wave)
-
-After a wave passes all automated checks (QA + Reviewer + scoped regression), run UAT before proceeding to the next wave. UAT is done by the **QA agent** in a different mode — it drives the app through user flows and reports findings.
-
-### UAT Process
-
-1. **Identify testable flows** — from the wave's stories, derive the end-to-end user journeys that should now work. Example: Wave 1 completed "create post" and "publish post" → UAT flow: "author creates a post, saves draft, publishes it, reader can see it on the feed."
-
-2. **Dispatch QA in UAT mode** — the QA agent uses Chrome MCP to walk through each flow:
-   - Navigate the app as each relevant party
-   - Execute the happy path for each story in the wave
-   - Check that cross-story flows work together (not just individual DODs)
-   - Screenshot each key state for evidence
-   - **For multi-repo stories**: verify the integration between services (e.g., API returns data, frontend renders it)
-
-3. **UAT Report**:
-   ```json
-   {
-     "status": "PASS",
-     "wave_id": 2,
-     "flows_tested": [
-       {
-         "name": "Author publishes post, reader sees it",
-         "steps": ["Navigate /editor", "Create post", "Publish", "Switch to reader", "Check feed"],
-         "passed": true,
-         "screenshots": ["uat-wave2-flow1-step3.png"]
-       }
-     ],
-     "issues": []
-   }
-   ```
-
-4. **If UAT finds issues**:
-   - Issues that violate a story's DOD → this means QA automated checks missed something (file a fix, re-run DOD)
-   - Issues that are cross-story integration problems → create a new story or amend an existing one
-   - Report to orchestrator, who decides: fix now (re-dispatch Coder) or note for next wave
-
-5. **UAT PASS** → proceed to next wave. **UAT FAIL** → fix issues, re-run UAT, then proceed.
-
-### Multi-Repo UAT
-
-For waves that span multiple repos:
-- Start all relevant services (using `run` commands from each repo in `epic.json`)
-- Test the integration points: API serves data, frontend renders it, admin panel consumes it
-- Verify that cross-repo contracts hold (e.g., frontend expects the shape the API returns)
-
-## On Completion
-
-When all waves are done:
-- Final verification: re-run ALL DOD validations across all stories
-- Kill the comment server
-- Update state.json: `"phase": "complete"`
-- Present final summary: all commit SHAs, DOD validation results, test results
-
-## Mid-Execution Amendments
-
-If a story's requirements need to change during execution:
-1. Pause execution (don't dispatch new stories)
-2. Update the story's acceptance_criteria and/or definition_of_done in state.json
-3. Set `"amended": true` on the story and append to `amendment_history`
-4. Trigger spec revision: archive current spec, regenerate with amended story details, append version to spec-versions.json. This is non-blocking — execution continues.
-5. If DOD validation commands changed, mark the story as "pending" (re-do it)
-6. If the change affects wave ordering (new dependency), re-plan remaining waves
-7. Resume execution
-
-The dashboard shows amended stories with a visual indicator.
-
-Amendment tracking fields on each story:
-```json
-{
-  "amended": false,
-  "amendment_history": []
-}
-```
-
-When an amendment occurs, append:
-```json
-{
-  "changed_at": "ISO timestamp",
-  "fields_changed": ["acceptance_criteria", "definition_of_done"],
-  "reason": "User requested additional validation for edge case"
-}
-```
+`state.json` without `execution_protocol_version` defaults to v1. To migrate a project mid-flight, set `execution_protocol_version: "2.0"` and update story statuses to v2 enum values. The validator will warn but not fail.
