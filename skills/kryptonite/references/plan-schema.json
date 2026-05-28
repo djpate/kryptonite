@@ -109,7 +109,8 @@
           "theme",
           "estimated_duration",
           "parallel_groups",
-          "demo_checkpoint"
+          "demo_checkpoint",
+          "user_journeys"
         ],
         "additionalProperties": false,
         "properties": {
@@ -298,6 +299,44 @@
                 }
               }
             }
+          },
+          "user_journeys": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["id", "name", "stories_covered", "steps"],
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "pattern": "^UJ-\\d{3}$" },
+                "name": { "type": "string", "minLength": 5 },
+                "stories_covered": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "type": "string", "pattern": "^US-\\d{3,}[a-z]?$" }
+                },
+                "steps": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "required": ["action"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "enum": ["navigate", "click", "fill", "assert_text", "assert_visible", "assert_url", "screenshot", "wait"]
+                      },
+                      "url": { "type": "string" },
+                      "selector": { "type": "string" },
+                      "value": { "type": "string" },
+                      "expect": { "type": "string" },
+                      "timeout_ms": { "type": "integer", "minimum": 0 }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -433,6 +472,24 @@
               "pattern": "^US-\\d{3,}[a-z]?$"
             },
             "description": "Story IDs that would be affected if this risk materialises"
+          }
+        }
+      }
+    },
+    "wave_gate_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "uat_enabled": { "type": "boolean", "default": true },
+        "ux_enabled": { "type": "boolean", "default": true },
+        "spec_compliance_enabled": { "type": "boolean", "default": true },
+        "code_review_enabled": { "type": "boolean", "default": true },
+        "max_fix_attempts": { "type": "integer", "minimum": 1, "maximum": 10, "default": 3 },
+        "fix_strategies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["same_coder_more_context", "different_coder_with_spike", "pause_for_user"]
           }
         }
       }
