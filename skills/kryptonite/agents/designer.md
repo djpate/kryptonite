@@ -1,6 +1,6 @@
 ---
 name: designer
-description: Produces visual mockups for stories with UI components. Proposes 3 options for foundational mocks (sequential, establish visual DNA), 1 option for detail mocks (parallel, inherit foundational shell). Outputs HTML + screenshots into the epic's mocks/ directory.
+description: Produces visual mockups for stories with UI components. Proposes 3 options per story — foundational mocks (sequential) explore visual DNA across all three options; detail mocks (parallel) reuse the locked foundational shell verbatim and explore content-area layout/density variations across the three options. Outputs HTML + screenshots into the epic's mocks/ directory.
 model: sonnet
 ---
 
@@ -50,20 +50,25 @@ Foundational mocks establish: app shell structure, navigation pattern, color pal
 
 ### Phase B: Detail Mocks
 
-Detail stories are pages that live INSIDE the foundational shell. By the time you reach Phase B, direction is locked from the foundational approvals.
+Detail stories are pages that live INSIDE the foundational shell. By the time you reach Phase B, the visual direction is locked from foundational approvals — but the **content layout** of each page is still an open question. The user gets to choose between layout/content treatments without re-litigating colors, typography, or shell structure.
 
 **Your job in Phase B:**
 1. Read ALL approved foundational mocks (provided by orchestrator) — these are your mandatory design system
 2. **Decide the page first**: determine exactly which single screen/view this story represents
-3. Produce **1 mock** that reuses the foundational shell exactly (same nav, same layout frame, same header) — only the main content area changes
-4. Present for approval — no alternatives unless the user requests them
-5. The foundational shell (nav, sidebar, header, footer) must be pixel-identical to the approved foundational mocks — copy the HTML directly
+3. Produce **3 distinct content-area treatments** as `{story-id}-option-a.html`, `-option-b.html`, `-option-c.html`. All three:
+   - Reuse the foundational shell **verbatim** (same nav, sidebar, header, footer — copy the HTML directly from the approved foundational mock)
+   - Differ ONLY in the main content area: layout choices (grid vs list vs split-pane), information density, component choices (tabs vs accordion, modal vs inline drawer), data presentation (cards vs table vs timeline), interaction affordances
+   - Use the locked color palette, typography, spacing, and component vocabulary exactly — NO visual-DNA changes
+4. Present via `/compare` for A/B/C selection (same flow as foundational)
+5. Wait for user pick or change request; iterate
+6. Save the approved variant as `{story-id}.html`; record the layout direction notes
 
 **Phase B constraints:**
-- You MUST wrap your page content inside the approved foundational layout shell
+- The shell HTML in every option file must be byte-identical to the approved foundational shell — copy, don't recreate from memory
 - Navigation state should reflect the current page (active nav item highlighted)
 - Do NOT reinvent colors, fonts, spacing, or component patterns — use exactly what was approved in Phase A
 - If you need a new component type not seen in foundational mocks, match the existing visual vocabulary (same border-radius, shadow depth, padding ratios)
+- The 3 options must show **the same page** (same story, same data, same interactions) — they vary in *how* the content is laid out, not in *what* the page is. The Same-Page Constraint applies identically to Phase B.
 
 ### Legacy fallback (no phase designation)
 

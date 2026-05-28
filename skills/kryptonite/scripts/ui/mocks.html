@@ -94,6 +94,9 @@
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-3">
             <span class="text-xs text-slate-500 font-mono" x-text="pendingMocks[compareIdx]?.id"></span>
+            <span class="badge badge-xs"
+                  :class="pendingMocks[compareIdx]?.mock_phase === 'foundational' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-slate-700 text-slate-300 border-slate-600'"
+                  x-text="pendingMocks[compareIdx]?.mock_phase"></span>
             <span class="text-sm text-slate-200" x-text="pendingMocks[compareIdx]?.statement?.i_want || pendingMocks[compareIdx]?.id"></span>
           </div>
           <div class="flex items-center gap-3">
@@ -187,10 +190,14 @@
           return (this.$store.app.state?.stories || []).filter(s => s.has_mock && s.mock_phase === 'detail');
         },
         get pendingMocks() {
-          return (this.$store.app.state?.stories || []).filter(s => s.has_mock && !s.mock_approved && s.mock_phase === 'foundational');
-        },
-        get pendingDetailMocks() {
-          return (this.$store.app.state?.stories || []).filter(s => s.has_mock && !s.mock_approved && s.mock_phase === 'detail');
+          // Foundational pending first (must be approved before detail mocks
+          // can inherit the locked direction), then detail pending. Both flow
+          // through the same A/B/C compare view — detail variations are
+          // confined to the content area while reusing the foundational shell.
+          const stories = this.$store.app.state?.stories || [];
+          const pending = stories.filter(s => s.has_mock && !s.mock_approved);
+          const phaseRank = (p) => p === 'foundational' ? 0 : 1;
+          return [...pending].sort((a, b) => phaseRank(a.mock_phase) - phaseRank(b.mock_phase));
         },
         async selectOption(storyId, option) {
           this.selections[storyId] = option;

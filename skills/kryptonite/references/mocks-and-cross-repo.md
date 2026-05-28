@@ -22,7 +22,7 @@ Classify a story as foundational if other visual stories would need to inherit i
 
 #### Phase B — Detail Mocks (parallel)
 
-All remaining visual stories. These pages live INSIDE the foundational shell and must conform to the approved foundational direction.
+All remaining visual stories. These pages live INSIDE the foundational shell and must conform to the approved foundational direction. Detail mocks still produce **3 options per story** — the variations are confined to the content area (layout, density, component choices, data presentation), never the visual DNA. The user picks between content treatments without re-litigating colors or shell structure.
 
 Mark each visual story with `"mock_phase": "foundational"` or `"mock_phase": "detail"`.
 
@@ -37,12 +37,12 @@ Mark each visual story with `"mock_phase": "foundational"` or `"mock_phase": "de
 
 ### Phase B execution
 
-1. Provide every Detail Designer agent with the full set of approved foundational mocks + the design system summary as mandatory context
-2. Dispatch Designer agents in parallel per batch (these pages all conform to the locked direction)
-3. Open `/compare` view for user approval
-4. Detail mocks must reuse the foundational shell exactly — only the page content area varies
+1. Provide every Detail Designer agent with the full set of approved foundational mocks + the `design_direction.shell_summary` as mandatory context. The agent must copy the foundational shell HTML verbatim into each of its option files.
+2. Dispatch Designer agents in parallel per batch — each agent produces **3 option files** (`{story-id}-option-a.html`, `-option-b.html`, `-option-c.html`) reusing the locked shell.
+3. Open `/compare` view for user A/B/C approval per story (same flow as Phase A).
+4. The shell (nav, sidebar, header, footer, color palette, typography) must be byte-identical to the foundational approvals across all three options. Only the main content area varies — layout, density, component choices, data presentation.
 
-**Do NOT start Phase B until all Phase A mocks are approved.** The foundational approvals are the source of truth for visual direction.
+**Do NOT start Phase B until all Phase A mocks are approved.** The foundational approvals are the source of truth for visual direction; detail options vary content layout *within* that locked direction.
 
 ### Mock storage
 
