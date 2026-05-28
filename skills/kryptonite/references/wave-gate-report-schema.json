@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KryptoniteWaveGateReport",
+  "description": "Schema validating any of the four wave gate report formats: uat, ux, spec_compliance, code_review.",
+  "type": "object",
+  "required": ["gate", "wave_id", "attempt", "status", "started_at", "completed_at", "issues"],
+  "additionalProperties": false,
+  "properties": {
+    "gate": {
+      "type": "string",
+      "enum": ["uat", "ux", "spec_compliance", "code_review"]
+    },
+    "wave_id": { "type": "string", "pattern": "^wave-\\d+$" },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "started_at": { "type": "string", "format": "date-time" },
+    "completed_at": { "type": "string", "format": "date-time" },
+    "journeys": {
+      "type": "array",
+      "description": "UAT-only — per-journey results.",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "status", "stories_covered", "steps"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^UJ-\\d{3}$" },
+          "name": { "type": "string" },
+          "status": { "type": "string", "enum": ["pass", "fail"] },
+          "stories_covered": { "type": "array", "items": { "type": "string" } },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["step_index", "action", "passed"],
+              "additionalProperties": false,
+              "properties": {
+                "step_index": { "type": "integer", "minimum": 0 },
+                "action": { "type": "string" },
+                "passed": { "type": "boolean" },
+                "actual": { "type": "string" },
+                "expected": { "type": "string" },
+                "screenshot": { "type": "string" },
+                "error": { "type": "string" }
+              }
+            }
+          },
+          "failure_reason": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "comparisons": {
+      "type": "array",
+      "description": "UX-only — per-mocked-story comparisons.",
+      "items": {
+        "type": "object",
+        "required": ["story_id", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "story_id": { "type": "string", "pattern": "^US-\\d{3,}[a-z]?$" },
+          "mock_path": { "type": "string" },
+          "implementation_screenshot": { "type": "string" },
+          "status": { "type": "string", "enum": ["match", "drift", "broken"] },
+          "drift_categories": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["colors", "layout", "typography", "spacing", "missing_element", "extra_element", "responsive", "interaction"]
+            }
+          },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "story_results": {
+      "type": "array",
+      "description": "spec_compliance-only — per-story AC results.",
+      "items": {
+        "type": "object",
+        "required": ["story_id", "ac_results", "all_passed"],
+        "additionalProperties": false,
+        "properties": {
+          "story_id": { "type": "string", "pattern": "^US-\\d{3,}[a-z]?$" },
+          "ac_results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["ac_index", "ac_text", "verification_method", "passed"],
+              "additionalProperties": false,
+              "properties": {
+                "ac_index": { "type": "integer", "minimum": 0 },
+                "ac_text": { "type": "string" },
+                "verification_method": {
+                  "type": "string",
+                  "enum": ["curl", "test_suite", "chrome_mcp", "code_inspection", "skipped_no_testing_config"]
+                },
+                "verification_details": { "type": "string" },
+                "passed": { "type": "boolean" },
+                "actual": { "type": "string" },
+                "expected": { "type": "string" }
+              }
+            }
+          },
+          "all_passed": { "type": "boolean" }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "description": "code_review-only — full list of findings (all severities).",
+      "items": {
+        "type": "object",
+        "required": ["id", "category", "severity", "file", "description"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^FINDING-\\d{3,}$" },
+          "category": {
+            "type": "string",
+            "enum": ["security", "correctness", "error_handling", "dead_code", "performance", "style"]
+          },
+          "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+          "file": { "type": "string" },
+          "line": { "type": "integer", "minimum": 1 },
+          "description": { "type": "string", "minLength": 5 },
+          "suggested_fix": { "type": "string" }
+        }
+      }
+    },
+    "issues": {
+      "type": "array",
+      "description": "Blocking issues — only those that fail the gate (critical/high). Each has a dedup_key for the orchestrator's fix loop.",
+      "items": {
+        "type": "object",
+        "required": ["id", "gate", "dedup_key", "description", "severity", "affected_stories"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string", "pattern": "^ISSUE-\\d{3,}$" },
+          "gate": {
+            "type": "string",
+            "enum": ["uat", "ux", "spec_compliance", "code_review"]
+          },
+          "dedup_key": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 5 },
+          "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+          "affected_stories": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^US-\\d{3,}[a-z]?$" }
+          }
+        }
+      }
+    }
+  }
+}
