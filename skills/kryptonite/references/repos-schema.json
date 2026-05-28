@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KryptoniteReposRegistry",
+  "description": "Schema for repos.json — the per-project repository registry. Each repo declares its location, stack, and (optionally) a structured testing block used by wave gates.",
+  "type": "object",
+  "required": ["repos"],
+  "additionalProperties": false,
+  "properties": {
+    "repos": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "path"],
+        "additionalProperties": true,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "path": { "type": "string", "minLength": 1 },
+          "description": { "type": "string" },
+          "stack": { "type": "string" },
+          "run": { "type": "string" },
+          "test": { "type": "string" },
+          "testing_notes": { "type": "string" },
+          "testing": {
+            "type": "object",
+            "required": ["start_command", "app_url"],
+            "additionalProperties": false,
+            "properties": {
+              "start_command": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Shell command to start the service. Run from the repo's path. Should return promptly (background or detached) — orchestrator waits for ready_signal/health_check after."
+              },
+              "stop_command": {
+                "type": "string",
+                "description": "Shell command to stop the service. Optional — if missing, orchestrator does not stop services."
+              },
+              "health_check": {
+                "type": "string",
+                "description": "Shell command (typically curl) that exits 0 when the service is healthy. Polled by orchestrator after start."
+              },
+              "app_url": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Base URL the wave gates use for Chrome MCP and curl."
+              },
+              "ready_signal": {
+                "type": "string",
+                "description": "String the orchestrator looks for in start_command stdout to consider the service ready. Optional alternative to health_check."
+              },
+              "startup_timeout_ms": {
+                "type": "integer",
+                "minimum": 1000,
+                "default": 30000,
+                "description": "How long to wait for ready_signal/health_check before giving up."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
