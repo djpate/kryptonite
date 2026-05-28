@@ -1,0 +1,42 @@
+README.md
+  s_2c11a8e5c76827::t_c19109efdd4345 92,94,96
+  s_2c11a8e5c76827::t_8683de7c00b52b 13
+  s_2c11a8e5c76827::t_27538b77977d75 11
+  s_2c11a8e5c76827::t_9afa15543ca2f5 102,104,106,108-111,113-117
+  s_2c11a8e5c76827::t_18faf6ae162c50 138-141
+  s_2c11a8e5c76827::t_427143955e7ee2 152-153
+skills/kryptonite/scripts/ui/assets/style.css
+  s_2c11a8e5c76827::t_fe1a3c6f122e24 43-47
+skills/kryptonite/scripts/ui/stories.html
+  s_2c11a8e5c76827::t_e7d246b2a5a83d 239-242,244
+.gitignore
+  s_2c11a8e5c76827::t_02aaef834f447a 5-9
+.claude-plugin/plugin.json
+  s_2c11a8e5c76827::t_21cc9d14e198fb 4
+CHANGELOG.md
+  s_2c11a8e5c76827::t_0218fcae298d5f 3-78
+package.json
+  s_2c11a8e5c76827::t_330f1bc41c57f1 3
+skills/kryptonite/scripts/ui/dashboard.html
+  s_2c11a8e5c76827::t_3eccc73a29c337 86,88
+  s_2c11a8e5c76827::t_cb52e2b987f591 43,46-62
+  s_2c11a8e5c76827::t_9c74cc268ddcbc 31-33
+skills/kryptonite/references/schema-changelog.json
+  s_2c11a8e5c76827::t_94b3cd46628429 5-85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "8462ffeca366a60aa9f0219f1f147bdb4d9d1aec",
+  "prompts": {},
+  "sessions": {
+    "s_2c11a8e5c76827": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "db628442-ef2c-4949-bbf0-754b31a59422",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
