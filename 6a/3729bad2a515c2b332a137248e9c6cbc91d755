@@ -1,0 +1,60 @@
+skills/kryptonite/references/storage-protocol.md
+  s_ff439c084bb36f::t_5cfdab3353f1a7 101-110
+skills/kryptonite/references/spec-versioning.md
+  s_ff439c084bb36f::t_b9a0cf225d2fb9 5-24
+README.md
+  s_ff439c084bb36f::t_23c1010a482f84 11
+  s_ff439c084bb36f::t_ea2f50acce19cb 304-305
+skills/kryptonite/scripts/test-fixtures/project-0.6.0/repos.json
+  s_ff439c084bb36f::t_f1bd64a19453b8 1-9
+skills/kryptonite/references/schema-changelog.json
+  s_ff439c084bb36f::t_6da4a8f053f111 5-73
+skills/kryptonite/scripts/phase-gates/08.0.6.0.json
+  s_ff439c084bb36f::t_76894cccbc54f3 1-29
+skills/kryptonite/agents/interviewer.md
+  s_ff439c084bb36f::t_da2d08155876cf 26-41
+skills/kryptonite/SKILL.md
+  s_ff439c084bb36f::t_1a836f3deaae9b 111
+  s_ff439c084bb36f::t_8383ef1b07855a 161
+  s_ff439c084bb36f::t_b9b2ee0effeef0 143,146-151
+  s_ff439c084bb36f::t_69c80273ffe2ad 238
+  s_ff439c084bb36f::t_1a40372161a9d8 137
+skills/kryptonite/scripts/phase-gates/07.0.6.0.json
+  s_ff439c084bb36f::t_d5e8dbb22ffd5b 1-23
+skills/kryptonite/references/mocks-and-cross-repo.md
+  s_ff439c084bb36f::t_99714de572c93c 35-36
+  s_ff439c084bb36f::t_8a069df5a2f049 11
+CHANGELOG.md
+  s_ff439c084bb36f::t_d9b15edf7424ef 3-70
+skills/kryptonite/scripts/test-fixtures/project-0.6.0/epic-pass/state.json
+  s_ff439c084bb36f::t_bd406a8b534dcc 1-61
+skills/kryptonite/references/epic-schema.json
+  s_ff439c084bb36f::t_9d884ac0f98cde 1-355
+skills/kryptonite/scripts/phase-gates/03.0.6.0.json
+  s_ff439c084bb36f::t_75aeae156aa072 1-24
+package.json
+  s_ff439c084bb36f::t_aec61cfb80dab5 3
+skills/kryptonite/scripts/test-fixtures/project-0.6.0/epic-pass/epic.json
+  s_ff439c084bb36f::t_3261c90b928e5e 1-106
+skills/kryptonite/scripts/phase-gates/06.0.6.0.json
+  s_ff439c084bb36f::t_074d5e9e66ae73 1-19
+skills/kryptonite/scripts/validate-gate.js
+  s_ff439c084bb36f::t_d5844927dcc064 55,63-97
+  s_ff439c084bb36f::t_0e06e73381dd62 111-120,124-126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "6a3729bad2a515c2b332a137248e9c6cbc91d755",
+  "prompts": {},
+  "sessions": {
+    "s_ff439c084bb36f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "288519c6-6b83-4da2-9ef2-29adae1ce36e",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
