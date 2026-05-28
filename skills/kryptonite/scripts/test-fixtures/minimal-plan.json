@@ -45,6 +45,18 @@
       },
       "post_wave_validation": [
         { "check": "Tests pass", "command": "npm test", "expect": "exit 0" }
+      ],
+      "user_journeys": [
+        {
+          "id": "UJ-001",
+          "name": "List items via CLI",
+          "stories_covered": ["US-001"],
+          "steps": [
+            { "action": "navigate", "url": "http://localhost:3000/items" },
+            { "action": "assert_visible", "selector": ".item-list" },
+            { "action": "screenshot" }
+          ]
+        }
       ]
     }
   ],
