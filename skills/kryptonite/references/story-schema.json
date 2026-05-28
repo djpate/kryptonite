@@ -153,6 +153,11 @@
       "default": false,
       "description": "Whether this story has a UI component that needs a visual mockup. Set to true during Phase 5 for stories with user-facing UI. Mock files are stored in the epic's mocks/ directory."
     },
+    "mock_phase": {
+      "type": "string",
+      "enum": ["foundational", "detail"],
+      "description": "Two-phase mock system (added in kryptonite 0.2.0). Foundational mocks define the visual DNA and run sequentially with 3 options each; detail mocks inherit and run in parallel. Required when has_mock === true."
+    },
     "mock_approved": {
       "type": "boolean",
       "default": false,
@@ -198,21 +203,12 @@
     },
     "status": {
       "type": "string",
-      "enum": ["pending", "in_progress", "qa_validation", "in_review", "done", "blocked", "cancelled", "deferred"],
+      "enum": ["pending", "in_progress", "merged", "done", "blocked", "cancelled", "deferred"],
       "description": "Execution-time state machine. See execution-protocol.md for transition rules."
     },
     "commit_sha": {
       "type": "string",
       "description": "SHA of the commit that implemented this story (recorded by the Coder agent)."
-    },
-    "dod_validation": {
-      "type": "object",
-      "description": "Result of running every DOD item. Written by the QA agent."
-    },
-    "review_status": {
-      "type": ["string", "null"],
-      "enum": [null, "approved", "needs_fixes"],
-      "description": "Result of the Reviewer agent's pass."
     },
     "test_results": {
       "type": "object",
@@ -225,6 +221,10 @@
     "started_at": {
       "type": "string",
       "description": "ISO timestamp of when execution began."
+    },
+    "merged_at": {
+      "type": "string",
+      "description": "ISO timestamp of when the story was merged into the wave branch."
     },
     "completed_at": {
       "type": "string",
