@@ -11,7 +11,7 @@ Each wave has two phases.
 - `in_progress` — Phase A coding underway
 - `gates_running` — Phase B validation underway
 - `complete` — all gates passed, advanced to next wave
-- `blocked` — stuck after max_fix_attempts; user input required
+- `blocked` — either (a) a gate returned `status: "blocked"` because its infrastructure (Chrome MCP, service start) is unavailable, or (b) the fix loop exhausted `max_fix_attempts` on a code-defect failure. In both cases the orchestrator pauses and waits for user input.
 
 ### Story statuses (v2)
 - `pending` — not yet dispatched
@@ -60,13 +60,22 @@ Each wave has two phases.
           - Subsequent: only previously-failed gates + any whose validated files were touched by the latest fix
      b. Dispatch the four gate agents in parallel
      c. Collect reports, write to wave-N/gates/<gate>-<attempt>.json
-     d. If all gates pass:
+     d. **If any gate.status == "blocked"** (infrastructure unavailable):
+          - Stop services
+          - Set wave.status = "blocked"
+          - Surface to user with the blocked-severity issue's description and recovery options
+            (repair infrastructure and re-run, defer wave, abort)
+          - Do NOT enter the fix loop — fix loop targets code defects, not infrastructure
+          - Do NOT mark stories done; do NOT advance to next wave
+          - BREAK
+     e. If all gates pass:
           - Stop services
           - Mark all wave stories status: "done"
           - Set wave.status = "complete"
-          - Break
-     e. Collect open issues across failed gates (deduped per gate's dedup_key)
-     f. For each open issue:
+          - BREAK
+     f. Otherwise (one or more gates "fail"):
+        Collect open issues with severity in (critical, high) across failed gates (deduped per gate's dedup_key)
+        For each open issue:
           - strategy = retry_strategy(len(issue.fix_attempts))
           - if strategy == "pause_for_user":
               surface to user, wait for response: fix manually | defer | replan | abort
@@ -159,12 +168,15 @@ Issue IDs are stable within a wave. Re-runs append `fix_attempts[]`. Issues neve
 
 A wave is `complete` when:
 - All stories in the wave have status `merged`
-- The latest gate_run has all four gate statuses: `pass` (or `skipped` for those without testing config — but that produces a warning, not a pass)
-- No open critical or high severity issues
+- The latest gate_run has all four gate statuses: `pass`
+- No open `critical`, `high`, or `blocked` severity issues
 
-A wave is `blocked` when:
-- After `max_fix_attempts` rounds, at least one critical/high issue is still open
-- User has been paused at least once and chose not to fix/defer
+A wave is `blocked` when any of the following is true:
+- A gate in the latest gate_run has `status: "blocked"` (infrastructure unavailable — e.g. Chrome MCP not connected, service won't start). The orchestrator pauses immediately and does NOT enter the fix loop, because the fix loop only targets code defects.
+- After `max_fix_attempts` rounds on a code-defect failure, at least one `critical`/`high` issue is still open.
+- The user was paused at attempt 3 and chose not to fix/defer.
+
+**Important:** A gate must report `status: "blocked"` (and must NOT report `pass`) when it could not perform its actual validation. UAT cannot fall back to source-code reading and call itself passed; UX cannot fall back to HTML diffing and call itself passed. The whole point of the gate is to exercise the running system. False passes are worse than blocked statuses because they let the wave advance on a lie.
 
 ## Migration from v1
 

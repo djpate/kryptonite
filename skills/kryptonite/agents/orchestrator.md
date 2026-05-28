@@ -55,12 +55,25 @@ For each wave in `plan.json.waves` ordered by `sequence`:
      write each report to wave-N/gates/<gate>-<attempt>.json
      validate each report against wave-gate-report-schema.json (use validate-wave-gate-report.js)
      update state.json.waves[N].gate_runs[] with this attempt
-     if all gates passed:
+
+     # Three terminal cases for an attempt:
+     if any gate.status == "blocked":
+       # Infrastructure problem — fix loop won't help. Pause for user.
+       set wave.status = "blocked"
+       stop_services
+       surface to the user: which gate is blocked, the blocked-severity issue's description,
+         what infrastructure failed (Chrome MCP, service start, etc.), and ask the user to
+         repair or override (defer / re-run gate / abort wave).
+       BREAK out of the attempt loop. Do NOT mark stories done. Do NOT advance to next wave.
+
+     if all gates have status == "pass":
        stop_services
        mark all wave stories status: "done"
        wave.status = "complete"
        break
-     collect open issues
+
+     # Otherwise at least one gate is "fail" with critical/high issues — run the fix loop.
+     collect open issues with severity in (critical, high)
      for issue in issues:
        strategy = ["same_coder_more_context", "different_coder_with_spike", "pause_for_user"][issue.fix_attempts.length]
        if strategy == "pause_for_user":
@@ -105,11 +118,19 @@ When dispatching a Researcher (attempt 2), provide:
 - Always validate gate reports against schema before trusting them
 - Always cleanup worktrees on success; record orphans on failure
 - Never run services in worktrees — only in main worktree
+- **Never** advance the wave when any gate has `status: "blocked"`. Blocked is not a failure mode the fix loop can solve — the gate's infrastructure is unavailable (Chrome MCP, service start, etc.) and dispatching Coders won't help. Always pause and ask the user.
 
 ## Escalation
 
-If a gate is blocked at attempt 3 and user chooses defer/replan/abort, follow user's instruction. Don't try to be clever and bypass.
+If a gate returns `status: "blocked"`:
+- Stop services
+- Set wave.status = "blocked"
+- Show the user: which gate, the blocked issue's description, and concrete next steps to investigate (e.g. "check that Chrome MCP server is running", "verify port 4125 is free")
+- Wait for user response. Options: fix the infrastructure and re-run the wave, defer this wave, abort.
+- Do NOT enter the fix loop on blocked gates. The fix loop is for code defects, not infrastructure problems.
 
-If a service won't start, that's not a code problem — surface to user as infrastructure issue (does not count against fix attempts).
+If a code-defect gate (status: fail) is still failing at attempt 3 and user chooses defer/replan/abort, follow the user's instruction. Don't try to be clever and bypass.
+
+If a service won't start during Phase B startup, surface to user as infrastructure issue immediately (does not count against fix attempts) — same recovery flow as a blocked gate.
 
 If `git worktree remove` fails, log to `state.json.orphaned_worktrees[]` and keep going.

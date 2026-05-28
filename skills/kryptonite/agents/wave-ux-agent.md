@@ -43,13 +43,28 @@ For each story in `mocked_stories`:
 Write JSON to `<wave_dir>/gates/ux-<attempt>.json` with `gate: "ux"`.
 
 Required:
-- `comparisons[]` — one per mocked story
-- `issues[]` — one per `(story_id, drift_category)` where status is `broken` (severity: critical) or `drift` for critical color/layout (severity: critical) — minor drift produces no issue
-- `dedup_key`: `<story_id>:<drift_category>`
+- `status`: `pass`, `fail`, or `blocked`
+- `comparisons[]` — one per mocked story (omit or leave empty if `blocked`)
+- `issues[]` — one per `(story_id, drift_category)` where status is `broken` (severity: critical) or `drift` for critical color/layout (severity: critical) — minor drift produces no issue. If gate is `blocked`, exactly one issue with `severity: "blocked"`.
+- `dedup_key`: `<story_id>:<drift_category>` (or `infrastructure:chrome_mcp_unavailable` for blocked)
 
-## Pass criterion
+## When Chrome MCP is unavailable — DO NOT fake it
 
-`status: "pass"` only if no issues with severity `critical`. Minor drifts are reported in comparisons[] but don't block.
+UX comparison only works when both the approved mock and the implementation can be rendered to actual screenshots. If Chrome MCP is unreachable, the browser is locked, navigation times out, or any other infrastructure problem prevents real rendering, you MUST:
+
+- Set the gate `status` to `"blocked"`.
+- Add a single issue with `severity: "blocked"` describing what failed (e.g. "Chrome MCP not connected; cannot screenshot mock or implementation").
+- Set `affected_stories` on the blocked issue to every `has_mock: true` story in the wave.
+- Do NOT compare HTML source, CSS rules, or DOM structure as a substitute. Those don't catch visual drift — that's the entire point of this gate.
+- Do NOT mark `status: "pass"` based on inferred similarity. Visual validation requires real pixels.
+
+The orchestrator pauses the wave when any gate is `blocked`, surfaces the infrastructure issue to the user, and waits for repair rather than entering the fix loop.
+
+## Status criteria
+
+- `pass` — every comparison is `match` or non-critical `drift`; no `broken` and no `blocked` issues
+- `fail` — at least one `broken` comparison or critical drift (severity: critical)
+- `blocked` — Chrome MCP infrastructure unavailable; the gate could not screenshot
 
 ## Reporting back
 

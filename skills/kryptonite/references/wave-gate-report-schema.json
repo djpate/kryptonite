@@ -12,7 +12,11 @@
     },
     "wave_id": { "type": "string", "pattern": "^wave-\\d+$" },
     "attempt": { "type": "integer", "minimum": 1 },
-    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "status": {
+      "type": "string",
+      "enum": ["pass", "fail", "blocked"],
+      "description": "pass = gate validated successfully. fail = code/data issue exists; orchestrator enters fix loop. blocked = infrastructure required by the gate is unavailable (e.g. Chrome MCP not reachable, service won't start). blocked must NEVER be reported as pass via substitute methods like code inspection. The orchestrator pauses the wave and surfaces to the user when any gate is blocked."
+    },
     "started_at": { "type": "string", "format": "date-time" },
     "completed_at": { "type": "string", "format": "date-time" },
     "journeys": {
@@ -140,7 +144,11 @@
           },
           "dedup_key": { "type": "string", "minLength": 1 },
           "description": { "type": "string", "minLength": 5 },
-          "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+          "severity": {
+            "type": "string",
+            "enum": ["blocked", "critical", "high", "medium", "low"],
+            "description": "blocked = infrastructure prevented validation (e.g. Chrome MCP unavailable). critical/high = blocking code defects (orchestrator runs fix loop). medium/low = non-blocking findings."
+          },
           "affected_stories": {
             "type": "array",
             "minItems": 1,

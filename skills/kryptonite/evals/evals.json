@@ -1,0 +1,26 @@
+{
+  "skill_name": "kryptonite",
+  "evals": [
+    {
+      "id": 1,
+      "name": "wave-gate-execute-mini-app-wave-0",
+      "prompt": "Execute kryptonite Phase 12 wave-gate execution on the prepared mini-app fixture. Phase A: parallel coding for 2 stories. Phase B: UAT, UX, spec compliance, code review gates in parallel. Mark wave complete when all gates pass.",
+      "expected_output": "items.html rendered, all 4 gate reports produced and passing, wave-0 marked complete, both stories marked done, git history shows wave branch with merge commits.",
+      "assertions": [
+        { "id": "A1", "text": "items.html file exists in outputs/ — coding actually produced the deliverable" },
+        { "id": "A2", "text": "items.html contains an h1 element with text 'Items' — US-001 basic structure met" },
+        { "id": "A3", "text": "items.html references /api/items (a fetch call) — page integrates with the API" },
+        { "id": "A4", "text": "items.html contains a select element for status filtering — US-002 wired up" },
+        { "id": "A5", "text": "items.html contains item rendering markup (.item class or list elements) — items rendered to DOM" },
+        { "id": "A6", "text": "final-state.json has wave-0 status 'complete' — wave advanced" },
+        { "id": "A7", "text": "final-state.json has both US-001 and US-002 status 'done' — stories marked done" },
+        { "id": "A8", "text": "All 4 gate reports exist: uat-1.json, ux-1.json, spec-compliance-1.json, code-review-1.json" },
+        { "id": "A9", "text": "Every gate report validates against wave-gate-report-schema.json (run validate-wave-gate-report.js on each)" },
+        { "id": "A10", "text": "All 4 gate reports have status 'pass' — wave actually passed validation" },
+        { "id": "A11", "text": "git log shows a wave-0 branch merge commit (--no-ff merge into main) — worktree protocol followed" },
+        { "id": "A12", "text": "No gate faked 'pass' by substituting code inspection / static analysis / curl when Chrome MCP was unavailable — UAT/UX must blocked, not pass, when browser validation can't run" }
+      ],
+      "files": []
+    }
+  ]
+}
