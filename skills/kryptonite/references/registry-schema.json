@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KryptoniteProjectRegistry",
+  "description": "Schema for <skill-path>/data/registry.json — the global mapping from project-id (12-char hash of git remote URL or repo path) to project metadata. Recovery and resume detection both depend on this file parsing cleanly.",
+  "type": "object",
+  "required": ["projects"],
+  "additionalProperties": false,
+  "properties": {
+    "projects": {
+      "type": "object",
+      "description": "Keyed by project-id (SHA-256 first 12 chars of git remote URL or absolute repo path).",
+      "patternProperties": {
+        "^[a-f0-9]{12}$": {
+          "type": "object",
+          "required": ["name", "path", "source", "source_type", "created_at"],
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Human-readable project name. Defaults to the basename of the repo path."
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Absolute path to the project's repo root."
+            },
+            "source": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The string the project-id was hashed from — either the git remote URL or the absolute repo path."
+            },
+            "source_type": {
+              "type": "string",
+              "enum": ["git_remote", "path_fallback"],
+              "description": "Which derivation produced the project-id."
+            },
+            "created_at": {
+              "type": "string",
+              "description": "ISO timestamp of when this project was first registered."
+            },
+            "last_seen_at": {
+              "type": "string",
+              "description": "Optional ISO timestamp of the last time the project was used. Updated on resume."
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

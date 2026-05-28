@@ -15,7 +15,7 @@
     "status": {
       "type": "string",
       "enum": ["pass", "fail", "blocked"],
-      "description": "pass = gate validated successfully. fail = code/data issue exists; orchestrator enters fix loop. blocked = infrastructure required by the gate is unavailable (e.g. Chrome MCP not reachable, service won't start). blocked must NEVER be reported as pass via substitute methods like code inspection. The orchestrator pauses the wave and surfaces to the user when any gate is blocked."
+      "description": "pass = gate validated successfully. fail = code/data issue exists; orchestrator enters fix loop. blocked = infrastructure required by the gate is unavailable (e.g. Chrome MCP not reachable, service won't start). blocked must NEVER be reported as pass via substitute methods like code inspection. The orchestrator pauses the wave and surfaces to the user when any gate is blocked. LOAD-BEARING TEXT: SKILL.md, agents/wave-uat-agent.md, agents/wave-ux-agent.md, and references/execution-protocol.md all rely on this prose to keep gate agents honest under pressure. Pressure-eval #6 confirmed that even without SKILL.md loaded, an agent reading this enum description alone was sufficient to refuse a fake-pass instruction. Do NOT soften this language — if you trim it, you must move the equivalent guardrail into every gate agent prompt before merging."
     },
     "started_at": { "type": "string", "format": "date-time" },
     "completed_at": { "type": "string", "format": "date-time" },

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KryptoniteActiveEpics",
+  "description": "Schema for <skill-path>/data/active.json — maps a project-id to its currently active epic slug. Resume detection reads this on every workflow start; an entry's absence means the project has no active epic (either fresh or all archived).",
+  "type": "object",
+  "required": ["active"],
+  "additionalProperties": false,
+  "properties": {
+    "active": {
+      "type": "object",
+      "description": "Keyed by project-id (12-char hash). Value is the slug of the currently active epic for that project. Omitting a key (or setting it to null) means no active epic.",
+      "patternProperties": {
+        "^[a-f0-9]{12}$": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "description": "The slug of the active epic (matches an {EPIC} directory under data/{PROJECT}/)."
+            },
+            {
+              "type": "null",
+              "description": "Explicitly no active epic — equivalent to omitting the key."
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

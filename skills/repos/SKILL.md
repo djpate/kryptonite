@@ -1,11 +1,15 @@
 ---
 name: repos
-description: "Manage the kryptonite repo registry. Use this skill when the user wants to add, remove, update, or list repos in their <skill-path>/data/{PROJECT}/repos.json. Trigger when: 'add a repo', 'register repo', 'update repo', 'remove repo', 'list repos', 'show repos', 'which repos', or when the user mentions a new codebase they want kryptonite to know about. Also trigger if the user says 'kryptonite repos' or 'manage repos'."
+description: "Use when the user wants to add, remove, update, or list repos that kryptonite should track — including phrases like 'add a repo', 'register repo', 'update repo', 'remove repo', 'list repos', 'show repos', 'which repos', 'kryptonite repos', or 'manage repos'. Use also when the user mentions a new codebase they want kryptonite to know about, or when a kryptonite phase needs a repo that isn't registered yet."
 ---
 
 # Kryptonite Repos — Repo Registry Management
 
-Manage the project-level repo registry at `<skill-path>/data/{PROJECT}/repos.json`. This registry is shared across all epics — define repos once, reference them by name in any story.
+Manage the project-level repo registry at `<skill-path-kryptonite>/data/{PROJECT}/repos.json`. This registry is shared across all epics — define repos once, reference them by name in any story.
+
+In paths below:
+- `<skill-path-kryptonite>` = the kryptonite skill directory (sibling to this one — repos data lives there, not here, because the kryptonite skill is what consumes it).
+- `{PROJECT}` = the active project's 12-char ID (see "Resolving the active project").
 
 ## What It Does
 
@@ -15,11 +19,24 @@ Manage the project-level repo registry at `<skill-path>/data/{PROJECT}/repos.jso
 - **Remove** — unregister a repo
 - **Detect** — scan a path and auto-fill stack, run, and test commands
 
+The on-disk format is defined by `<skill-path-kryptonite>/references/repos-schema.json` — that schema is the source of truth, including the optional `testing` block (`start_command`, `app_url`, `health_check`, etc.) that wave-gate agents consume in Phase 12. Validate against it before writing.
+
+## Resolving the active project
+
+Every action below needs a `{PROJECT}` ID. Resolve it in this order:
+
+1. Compute project-id from the current working directory: `git remote get-url origin` → SHA-256, first 12 chars. If no remote, hash the absolute repo root path instead.
+2. Look up that ID in `<skill-path-kryptonite>/data/registry.json`. If present, use it.
+3. If absent: this is a not-yet-registered project — fall through to the "Initialization" section below.
+4. If the user is asking about a project they're not `cd`'d into (rare), list `registry.json` and ask which one.
+
+Don't guess `{PROJECT}` from directory names — the hash is the only authoritative key.
+
 ## Actions
 
 ### List Repos
 
-If the user asks to see repos, read `<skill-path>/data/{PROJECT}/repos.json` and present them:
+If the user asks to see repos, read `<skill-path-kryptonite>/data/{PROJECT}/repos.json` and present them:
 
 ```
 Registered repos:
@@ -44,7 +61,7 @@ When the user wants to add a repo, gather these fields:
 6. **test** — how to run tests. Auto-detect if possible.
 7. **testing_notes** — free-form testing context. Ask: "Any testing notes? (credentials, URLs, how to seed data, API keys, anything agents need to know when testing against this repo)"
 
-After gathering all fields, write to `<skill-path>/data/{PROJECT}/repos.json` (create the project data directory if it doesn't exist).
+After gathering all fields, write to `<skill-path-kryptonite>/data/{PROJECT}/repos.json` (create the project data directory if it doesn't exist).
 
 ### Auto-Detection
 
@@ -68,7 +85,7 @@ Present detected values and ask user to confirm or adjust.
 When the user wants to change a repo's details:
 1. Show current values
 2. Ask what to change
-3. Update `<skill-path>/data/{PROJECT}/repos.json`
+3. Update `<skill-path-kryptonite>/data/{PROJECT}/repos.json`
 
 ### Remove a Repo
 
@@ -79,7 +96,7 @@ When the user wants to remove a repo:
 
 ## File Format
 
-`<skill-path>/data/{PROJECT}/repos.json`:
+`<skill-path-kryptonite>/data/{PROJECT}/repos.json`:
 ```json
 {
   "repos": [
@@ -97,20 +114,21 @@ When the user wants to remove a repo:
 ```
 
 The `testing_notes` field is **free-form text** — put whatever the wave gate agents and Coder need to know to test against this repo: credentials, URLs, how to seed data, API keys, external service configs, special env vars, etc. This gets passed to agents when they work on stories in this repo.
-```
 
 ## Initialization
 
-If the project data directory doesn't exist when this skill is invoked:
-1. Compute project-id (SHA-256 of git remote URL or path, first 12 chars)
-2. Create the directory: `<skill-path>/data/{PROJECT}/`
-3. Write empty registry: `{"repos": []}` to `<skill-path>/data/{PROJECT}/repos.json`
-4. Register the project in `<skill-path>/data/registry.json`
+If "Resolving the active project" returned no entry for the current directory:
+1. Compute project-id (SHA-256 of git remote URL or path, first 12 chars).
+2. Create the directory: `<skill-path-kryptonite>/data/{PROJECT}/`.
+3. Write empty registry: `{"repos": []}` to `<skill-path-kryptonite>/data/{PROJECT}/repos.json`.
+4. Register the project in `<skill-path-kryptonite>/data/registry.json` (entry shape per `<skill-path-kryptonite>/references/registry-schema.json` — `name`, `path`, `source`, `source_type`, `created_at`).
+
+Kryptonite performs the same setup when starting a new epic — both skills converge on the same files. If kryptonite already initialized the project, the lookup in step 2 of "Resolving the active project" finds it and you don't create anything.
 
 ## Integration with Epics
 
 - Stories reference repos by `name` via the `repo` field
-- The kryptonite epic skill reads `repos.json` during Phase 6 (Technical Guidance) 
+- The kryptonite epic skill reads `repos.json` during Phase 7 (Technical Guidance)
 - Agents (Coder, QA) receive repo details from this registry when dispatched
 - The repo registry is the source of truth for paths, commands, and stack info
 
