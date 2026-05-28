@@ -71,6 +71,13 @@ if (isLegacyEpic) {
   warnings.push(`Epic was created with kryptonite v${epicVersion} (current: v${currentVersion}). Check references/schema-changelog.json for migration steps if gate checks fail.`);
 }
 
+// --- Protocol version detection ---
+const protocolVersion = state?.execution_protocol_version || "1.0";
+const isProtocolV2 = protocolVersion.startsWith("2.");
+if (isProtocolV2) {
+  warnings.push(`Project uses execution protocol v${protocolVersion} (wave-gate model). Phase 12 checks adapt accordingly.`);
+}
+
 // --- Schema validation ---
 // For legacy epics (no version), use a relaxed schema variant if available
 const relaxedSchemaFile = path.join(gatesDir, `${String(phase).padStart(2, "0")}-legacy.json`);
@@ -106,7 +113,13 @@ function semanticChecks() {
     }
     checkWaveOrder();
   }
-  if (phase >= 12) checkStoryStatusInActiveWaves();
+  if (phase >= 12) {
+    if (isProtocolV2) {
+      checkWaveStatusV2();
+    } else {
+      checkStoryStatusInActiveWaves();
+    }
+  }
 }
 
 function checkSpikeFiles() {
@@ -184,6 +197,23 @@ function checkWaveOrder() {
       if (!dep || dep.wave == null) continue;
       if (dep.wave >= story.wave) {
         errors.push(`SEMANTIC stories[${story.id}].wave: dependency "${depId}" is in wave ${dep.wave} but ${story.id} is in wave ${story.wave} (deps must be in earlier waves)`);
+      }
+    }
+  }
+}
+
+function checkWaveStatusV2() {
+  if (!state?.waves) return;
+  for (const wave of state.waves) {
+    if (wave.status === "in_progress" || wave.status === "gates_running") {
+      // Verify all stories in the wave have valid v2 status
+      for (const storyId of wave.stories || []) {
+        const story = state.stories.find((s) => s.id === storyId);
+        if (!story) continue;
+        const validV2Statuses = ["pending", "in_progress", "merged", "done", "blocked", "cancelled", "deferred"];
+        if (story.status && !validV2Statuses.includes(story.status)) {
+          errors.push(`SEMANTIC stories[${storyId}].status: invalid v2 status "${story.status}" — expected one of ${validV2Statuses.join(", ")}`);
+        }
       }
     }
   }
