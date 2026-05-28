@@ -52,12 +52,49 @@ if (!fs.existsSync(schemaFile)) {
 
 const schema = loadJSON(schemaFile);
 const storySchema = loadJSON(path.join(refsDir, "story-schema.json"));
+const epicSchema = loadJSON(path.join(refsDir, "epic-schema.json"));
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 addFormats(ajv);
 
 if (storySchema) {
   ajv.addSchema(storySchema, "story-schema.json");
+}
+if (epicSchema) {
+  ajv.addSchema(epicSchema, "epic-schema.json");
+}
+
+// Schemas suffixed with a version (e.g. 03.0.6.0.json) hold the *additional*
+// requirements introduced at that version. They are applied on top of the base
+// gate when the epic was created on that version or later. Older epics aren't
+// held to newer requirements — they keep passing on the schema they were
+// created under.
+function compareSemver(a, b) {
+  const pa = a.split(".").map((n) => parseInt(n, 10));
+  const pb = b.split(".").map((n) => parseInt(n, 10));
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) - (pb[i] || 0);
+  }
+  return 0;
+}
+
+const supplementalSchemas = [];
+if (epicVersion) {
+  const phasePrefix = `${String(phase).padStart(2, "0")}.`;
+  const candidates = fs.readdirSync(gatesDir)
+    .filter((f) => f.startsWith(phasePrefix) && f.endsWith(".json") && f !== `${String(phase).padStart(2, "0")}.json`);
+
+  for (const candidate of candidates) {
+    const versionPart = candidate.slice(phasePrefix.length, -".json".length);
+    if (/^\d+\.\d+\.\d+$/.test(versionPart) && compareSemver(epicVersion, versionPart) >= 0) {
+      const supplemental = loadJSON(path.join(gatesDir, candidate));
+      if (supplemental) {
+        supplementalSchemas.push({ version: versionPart, schema: supplemental });
+      }
+    }
+  }
+  // Sort by version ascending so error messages are deterministic.
+  supplementalSchemas.sort((a, b) => compareSemver(a.version, b.version));
 }
 
 const errors = [];
@@ -70,16 +107,23 @@ if (epicVersion && epicVersion !== currentVersion) {
 
 // --- Schema validation ---
 const wrapper = { epic, state, repos };
-const validate = ajv.compile(schema);
-const valid = validate(wrapper);
 
-if (!valid) {
-  for (const err of validate.errors) {
-    const fieldPath = err.instancePath || "/";
-    const msg = err.message || "validation failed";
-    const detail = err.params ? JSON.stringify(err.params) : "";
-    errors.push(`SCHEMA ${fieldPath}: ${msg}${detail ? " " + detail : ""}`);
+function runSchema(schemaToRun, label) {
+  const validate = ajv.compile(schemaToRun);
+  const valid = validate(wrapper);
+  if (!valid) {
+    for (const err of validate.errors) {
+      const fieldPath = err.instancePath || "/";
+      const msg = err.message || "validation failed";
+      const detail = err.params ? JSON.stringify(err.params) : "";
+      errors.push(`SCHEMA${label ? ` (${label})` : ""} ${fieldPath}: ${msg}${detail ? " " + detail : ""}`);
+    }
   }
+}
+
+runSchema(schema);
+for (const { version, schema: supplemental } of supplementalSchemas) {
+  runSchema(supplemental, `v${version}+`);
 }
 
 // --- Semantic validation (phase-dependent) ---

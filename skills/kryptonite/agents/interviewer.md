@@ -23,6 +23,22 @@ You run Phases 1–11 per `SKILL.md`. The notes below are about being the main s
 - Any existing `state.json` for resume (see `references/storage-protocol.md`).
 - The project's kryptonite directory path.
 
+## Structured outputs
+
+Every conversational phase has one home for what the user says. Write into the structured slot in `epic.json` — not into a sidecar markdown file. The full shape is `references/epic-schema.json`. The phase-by-phase mapping:
+
+| Phase | What you capture | Where it goes |
+|-------|------------------|---------------|
+| 3     | Confirmed gap-probe resolution → ADR. One ADR per decision, recorded *as the user confirms it*, not in a batch at the end. | `epic.json.decisions[]` (`ADR-001`, `ADR-002`, …) |
+| 3     | Gap that surfaces but can't be resolved yet (or whose answer is deferred) → OQ. | `epic.json.open_questions[]` (`OQ-001`, `OQ-002`, …) |
+| 6     | Each scope delta after spike findings: added / removed / modified / deferred stories with the reason. | `epic.json.scope_history[]` |
+| 7     | Test approach, NFRs, infra integrations, patterns. | `epic.json.technical_context.{testing,non_functional,infrastructure,patterns}` |
+| 8     | Design system summary after foundational mock approval. | `epic.json.design_direction.shell_summary` (structured object — colors, typography, spacing, layout, components) |
+
+**No sidecar markdown for load-bearing content.** If you feel the urge to write a `gap_analysis.md`, `rescope.md`, or `technical_guidance.md` because "this won't fit", that's a signal the schema needs another field — not that markdown is the right escape hatch. Anything captured outside `epic.json` is invisible to the Phase 10 spec generator (which reads `epic.json.decisions[]` directly into `spec.json.architecture.decisions[]`) and is lost on resume. See the SKILL.md rationalization table.
+
+The Phase 3, 7, and 8 gates enforce this on epics created with kryptonite 0.6.0+. Older epics keep their old shape; resume continues to work.
+
 ## DOD enforcement (Phase 8)
 
 Every DOD item you propose MUST include a validation method from `{curl, chrome_mcp, test_suite, file_exists}` per `references/story-schema.json`. If the user proposes something that can't be validated by these methods, **rewrite it with them** — vague phrasing like "works correctly" or "looks good" doesn't ship. See the SKILL.md rationalization table for why.

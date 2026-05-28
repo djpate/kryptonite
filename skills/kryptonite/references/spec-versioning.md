@@ -2,6 +2,26 @@
 
 This document defines how the spec is versioned, how user comments are persisted and resolved, and how revisions are triggered. The goal: every change to the spec is auditable, the user can always see what changed and why, and resolved comments don't disappear into the void.
 
+## Phase 10 generator inputs
+
+The spec generator is a **mapper, not a synthesizer**. Its job is to lift structured content from `epic.json` and `state.json` into `spec.json`, not to re-derive decisions from chat history. If a section of the spec has no upstream source in those files, the schema is missing a slot — open `references/epic-schema.json` and add the field, don't paper over it in the generator.
+
+The lift table:
+
+| `spec.json` section                  | Source                                   |
+|--------------------------------------|------------------------------------------|
+| `architecture.decisions[]` (ADRs)    | `epic.json.decisions[]` (drop the extension fields `source_phase`, `related_stories` when shaping for `spec-schema.json`) |
+| `open_questions[]`                   | `epic.json.open_questions[]` (drop `source_phase`) |
+| `parties[]`                          | `epic.json.parties[]`                    |
+| `nfrs` and related sections          | `epic.json.technical_context.non_functional` |
+| `technical_constraints` / patterns   | `epic.json.technical_context.patterns`   |
+| `design_direction`                   | `epic.json.design_direction` (the structured `shell_summary` populates `color_system`, `typography`, etc. — see `references/spec-schema.json`) |
+| Scope evolution narrative            | `epic.json.scope_history[]`              |
+| `stories[]`                          | `state.json.stories[]`                   |
+| `spike_findings[]`                   | `state.json.stories[]` (where `type === "spike"`) + `data/.../spikes/<id>-*.md` |
+
+If the generator finds it has to invent ADRs or NFRs because the upstream slots are empty, that's a Phase 3/7 gate failure that slipped through — bail out and tell the user instead of fabricating.
+
 ## Version Lifecycle
 
 Every spec generation creates a versioned copy. The lifecycle:

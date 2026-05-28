@@ -1,5 +1,73 @@
 # Changelog
 
+## 0.6.0 — Structured Phase 3 / 6 / 7 / 8 Outputs
+
+Closes a long-standing leak where conversational phases produced load-bearing content with no structured slot in `epic.json`. The interviewer was compensating by writing sidecar markdown (`gap_analysis.md`, `rescope.md`, `technical_guidance.md`), which the phase gates accepted (because they only checked trivial fields), the spec generator couldn't consume, and resume couldn't recover. Phase 3 ADRs, Phase 6 scope deltas, Phase 7 technical context, and the Phase 8 design system summary now have real schemas and real gates.
+
+### What was wrong
+
+Phases 3, 6, 7, and 8 each produce substantial output during the interview. Before 0.6.0:
+
+- **Phase 3 gap-probe resolutions** had no slot. The spec generator (Phase 10) re-synthesized `architecture.decisions[]` and `open_questions[]` from chat history every time, even though `spec-schema.json` defined those exact fields.
+- **Phase 6 scope deltas** after spike findings had no slot. `rescope.md` was the de-facto store.
+- **Phase 7 technical context** was a free-form `object` validated only by `minProperties: 1` — anything passed.
+- **Phase 8 design system summary** was nominally tracked under `design_direction.shell_summary` but was free-form prose, not a structured object detail-mock Designers could inherit deterministically.
+
+The pattern repeated across all four phases: interview captures real data → gate doesn't check for structure → schema has no slot → content lands in markdown sidecars → invisible to downstream phases → lost on resume.
+
+### What changed
+
+**New file: `references/epic-schema.json`** — defines the full `epic.json` shape including:
+- `decisions[]` — Phase 3 ADRs (`ADR-001+`). Same shape as `spec-schema.json`'s `architecture.decisions[]`, plus `source_phase` and `related_stories[]` for traceability. Lifted verbatim into `spec.json` during Phase 10.
+- `open_questions[]` — Phase 3 OQs (`OQ-001+`). Same shape as `spec-schema.json`'s `open_questions[]`, plus `source_phase`.
+- `scope_history[]` — Phase 6 append-only delta log (trigger + added/removed/modified/deferred).
+- `technical_context.{testing,non_functional,infrastructure,patterns}` — Phase 7 output, now structured. Each sub-object is independently optional but at least one must be populated.
+- `design_direction.shell_summary` — Phase 8 visual DNA as a structured object (nav, header, layout, colors, typography, spacing, components). Required when `design_direction.locked === true`.
+
+**Version-aware phase gates.** New supplemental gate files at `scripts/phase-gates/{03,06,07,08}.0.6.0.json` activate only when `epic.kryptonite_version >= 0.6.0`. The base gate files are unchanged, so 0.5.0 epics resume cleanly with no retroactive enforcement. `validate-gate.js` discovers version-suffixed schemas dynamically and labels their errors `SCHEMA (v0.6.0+)` so the source is obvious.
+
+**Interviewer + SKILL.md updates.** `agents/interviewer.md` gains a "Structured outputs" table mapping each conversational phase to its `epic.json` slot, plus an explicit no-sidecar-markdown rule. `SKILL.md` Phase 3 / 6 / 7 / 8 sections name the structured slots; the Discipline rationalization table gains an entry forbidding sidecar markdown for load-bearing content (it's invisible to the spec generator and lost on resume).
+
+**Phase 10 spec generator becomes a mapper, not a synthesizer.** `references/spec-versioning.md` documents the lift table from `epic.json` → `spec.json`. If the generator finds upstream slots empty, it bails with a Phase 3/7 gate failure — no fabrication.
+
+### New files
+
+- `skills/kryptonite/references/epic-schema.json`
+- `skills/kryptonite/scripts/phase-gates/03.0.6.0.json`
+- `skills/kryptonite/scripts/phase-gates/06.0.6.0.json`
+- `skills/kryptonite/scripts/phase-gates/07.0.6.0.json`
+- `skills/kryptonite/scripts/phase-gates/08.0.6.0.json`
+- `skills/kryptonite/scripts/test-fixtures/project-0.6.0/` — passing 0.6.0 fixture as a long-term canary
+
+### Modified files
+
+- `skills/kryptonite/scripts/validate-gate.js` — loads version-suffixed supplemental gates on top of the base gate when the epic's version matches; preserves per-phase semantic checks
+- `skills/kryptonite/agents/interviewer.md` — Structured outputs section, no-sidecar rule
+- `skills/kryptonite/SKILL.md` — Phase 3 / 6 / 7 / 8 wording names the structured slots; rationalization table gains the sidecar-markdown entry
+- `skills/kryptonite/references/storage-protocol.md` — points at `epic-schema.json` instead of inlining a (drifted) field list
+- `skills/kryptonite/references/mocks-and-cross-repo.md` — fixes wrong `state.json` pointer; documents the structured `shell_summary` requirement
+- `skills/kryptonite/references/spec-versioning.md` — Phase 10 generator inputs section with the `epic.json` → `spec.json` lift table
+- `skills/kryptonite/references/schema-changelog.json` — 0.5.0 → 0.6.0 entry with the optional migration mapping
+- `package.json` — 0.5.0 → 0.6.0
+- `README.md` — version badge bumped, project-structure block surfaces the new structured `epic.json` fields
+
+### Migration
+
+**Non-breaking.** 0.5.0 epics resume cleanly. The new gates apply only to epics with `epic.kryptonite_version >= 0.6.0` — `validate-gate.js` keys off the per-epic version, not the installed plugin version.
+
+**Optional 0.5.0 → 0.6.0 upgrade for an existing epic** (full step-by-step in `references/schema-changelog.json`):
+
+1. Translate any `gap_analysis.md` resolutions into `epic.json.decisions[]` (ADRs) and `epic.json.open_questions[]` (OQs).
+2. Translate any `rescope.md` into `epic.json.scope_history[]`.
+3. Translate any `technical_guidance.md` into `epic.json.technical_context.{testing,non_functional,infrastructure,patterns}`.
+4. If foundational mocks are approved, write the structured design system into `epic.json.design_direction.shell_summary`.
+5. Bump `epic.json.kryptonite_version` to `"0.6.0"`.
+6. Rename migrated sidecars to `*.legacy.md` so the interviewer doesn't re-read them as authoritative.
+
+In-flight epics can also just finish on the 0.5.0 shape — no upgrade required.
+
+---
+
 ## 0.5.0 — Skill Hygiene Pass
 
 Tightens the skill itself — no protocol changes. SKILL.md is now ~250 lines instead of 900, agents have proper frontmatter, the rules that govern Phase 12 live in exactly one place, and the README finally matches the v2 wave-gate model.

@@ -2,6 +2,76 @@
   "description": "Tracks schema changes per kryptonite version. Used by the validator to understand which fields existed at a given version and by migration logic to upgrade older epics.",
   "versions": [
     {
+      "version": "0.6.0",
+      "date": "2026-05-28",
+      "changes": [
+        {
+          "type": "added",
+          "target": "epic.json",
+          "field": "decisions[]",
+          "description": "Phase 3 architecture decisions captured as ADRs. Same shape as spec-schema.json's architecture.decisions[], plus extension fields source_phase and related_stories[] for traceability. Lifted into spec.json.architecture.decisions[] verbatim during Phase 10 (the generator drops the extension fields)."
+        },
+        {
+          "type": "added",
+          "target": "epic.json",
+          "field": "open_questions[]",
+          "description": "Phase 3 unresolved gaps captured as OQs. Same shape as spec-schema.json's open_questions[], plus extension field source_phase. Lifted into spec.json.open_questions[] verbatim during Phase 10."
+        },
+        {
+          "type": "added",
+          "target": "epic.json",
+          "field": "scope_history[]",
+          "description": "Phase 6 append-only log of scope deltas after spike findings. Each entry records phase, trigger, and added/removed/modified/deferred story IDs."
+        },
+        {
+          "type": "added",
+          "target": "references/epic-schema.json",
+          "field": "(entire file)",
+          "description": "New JSON schema defining the full epic.json shape. Replaces the inline field list previously in storage-protocol.md (which had drifted from reality)."
+        },
+        {
+          "type": "changed",
+          "target": "epic.json",
+          "field": "technical_context",
+          "description": "Phase 7 output. Was a free-form object with minProperties: 1 — now structured under testing/non_functional/infrastructure/patterns. Phase 7 gate (on 0.6.0+ epics) requires at least one of the four sub-objects to be populated."
+        },
+        {
+          "type": "changed",
+          "target": "epic.json",
+          "field": "design_direction.shell_summary",
+          "description": "Phase 8 output. Now a structured object (nav, header, layout, colors, typography, spacing, components) instead of free-form prose. Phase 8 gate (on 0.6.0+ epics) requires shell_summary to be populated whenever design_direction.locked === true so detail-mock Designers inherit the visual DNA deterministically."
+        },
+        {
+          "type": "added",
+          "target": "phase-gates",
+          "field": "scripts/phase-gates/{03,06,07,08}.0.6.0.json",
+          "description": "Version-suffixed supplemental gate schemas. validate-gate.js loads them on top of the base gate when epic.kryptonite_version >= 0.6.0. Older epics keep using the base gate alone — no retroactive enforcement."
+        },
+        {
+          "type": "changed",
+          "target": "scripts/validate-gate.js",
+          "field": "version-aware schema loading",
+          "description": "Validator now loads version-suffixed supplemental gate schemas (e.g. 03.0.6.0.json) on top of the base gate when the epic's kryptonite_version is at or above the suffix. Errors from supplementals are labeled SCHEMA (vX.Y.Z+) for clarity."
+        }
+      ],
+      "migration": {
+        "from": "0.5.0",
+        "breaking": false,
+        "notes": [
+          "0.5.0 epics resume cleanly. The new gates apply only to epics created on 0.6.0+ — the validator keys off epic.kryptonite_version, not the installed plugin version.",
+          "An in-flight 0.5.0 epic finishes Phase 8 on its current shape. To bring an old epic onto the 0.6.0 schema, follow the optional migration mapping below."
+        ],
+        "steps": [
+          "If the epic has a sidecar gap_analysis.md (or equivalent Phase 3 notes), translate each confirmed gap-probe resolution into an ADR under epic.json.decisions[] (id ADR-001+, status 'accepted', context/choice/consequences/alternatives per references/epic-schema.json). Translate each unresolved gap into an OQ under epic.json.open_questions[].",
+          "If the epic has a sidecar rescope.md, translate each scope delta into an entry under epic.json.scope_history[] with phase, trigger, and added/removed/modified/deferred arrays.",
+          "If the epic has a sidecar technical_guidance.md, translate the test approach into technical_context.testing.{backend,frontend,e2e}; non-functional sections into technical_context.non_functional.*; infrastructure integrations into technical_context.infrastructure.{integrate_with,do_not_integrate,gating}; architectural patterns into technical_context.patterns.{honor,avoid}.",
+          "If foundational mocks are approved, write the design system summary into epic.json.design_direction.shell_summary as a structured object (nav, header, layout, colors, typography, spacing, components).",
+          "Bump epic.json.kryptonite_version to '0.6.0'. The next phase gate run will exercise the new supplemental schemas.",
+          "Rename any migrated sidecar markdowns to *.legacy.md so the interviewer doesn't re-read them as authoritative — they're paper trail only."
+        ]
+      }
+    },
+    {
       "version": "0.4.0",
       "date": "2026-05-28",
       "changes": [

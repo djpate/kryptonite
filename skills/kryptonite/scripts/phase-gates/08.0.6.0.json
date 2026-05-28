@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Phase 8 Gate — 0.6.0 supplemental",
+  "description": "Phase 8 sets epic.design_direction.locked to true once foundational mocks are approved. When locked, shell_summary must be the structured object defined by epic-schema.json (nav, header, layout, colors, typography, spacing, components) — not free-form prose — so detail mocks inherit deterministically and the spec renders the design system as data.",
+  "type": "object",
+  "required": ["epic"],
+  "properties": {
+    "epic": {
+      "type": "object",
+      "properties": {
+        "design_direction": {
+          "if": {
+            "properties": { "locked": { "const": true } },
+            "required": ["locked"]
+          },
+          "then": {
+            "required": ["shell_summary"],
+            "properties": {
+              "shell_summary": {
+                "type": "object",
+                "minProperties": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

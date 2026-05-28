@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Phase 7 Gate — 0.6.0 supplemental",
+  "description": "Phase 7 captures testing approach, NFRs, infrastructure integrations, and architectural patterns. The 0.5.0 gate accepted any object with one key, which let interviewers route content into sidecar markdown. This gate requires at least one of the four named sub-objects under technical_context to be populated.",
+  "type": "object",
+  "required": ["epic"],
+  "properties": {
+    "epic": {
+      "type": "object",
+      "required": ["technical_context"],
+      "properties": {
+        "technical_context": {
+          "anyOf": [
+            { "required": ["testing"] },
+            { "required": ["non_functional"] },
+            { "required": ["infrastructure"] },
+            { "required": ["patterns"] }
+          ]
+        }
+      }
+    }
+  }
+}

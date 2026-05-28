@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Phase 6 Gate — 0.6.0 supplemental",
+  "description": "Phase 6 re-scopes after spike findings. Every scope delta lands as an entry in epic.json.scope_history[]. The array may be empty when Phase 5 surfaced no spikes, but the field must exist so resume + the spec generator know the delta was considered.",
+  "type": "object",
+  "required": ["epic"],
+  "properties": {
+    "epic": {
+      "type": "object",
+      "required": ["scope_history"],
+      "properties": {
+        "scope_history": {
+          "type": "array",
+          "items": { "$ref": "epic-schema.json#/properties/scope_history/items" }
+        }
+      }
+    }
+  }
+}

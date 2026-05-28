@@ -108,6 +108,7 @@ Always thorough regardless of project size — better to over-clarify than ship 
 1. **Present understanding.** Show stories grouped by actor with your interpretation of how the system works.
 2. **Identify gaps.** Look for missing error/edge cases, incomplete flows, ambiguous scope, missing actors, security/auth boundaries, untracked state transitions, dangling data, missing notification flows, missing deletion/archival, bulk operations implied by single-item stories.
 3. **Probe gaps one at a time.** Propose your best guess; let the user confirm or correct. Don't dump 15 questions.
+4. **Record each resolution as it happens.** Confirmed decisions land in `epic.json.decisions[]` as ADRs (`ADR-001`, `ADR-002`, …); unresolved gaps land in `epic.json.open_questions[]` as OQs. Don't accumulate them in chat — they're load-bearing inputs to Phase 10 (the spec generator lifts them verbatim into `spec.json`). Schema in `references/epic-schema.json`.
 
 If new stories emerge mid-phase, integrate them and re-check for gaps. New scope (entirely new concepts) is not a gap — acknowledge it, update the story list, then re-assess existing stories against the new context.
 
@@ -133,18 +134,21 @@ After spikes return:
 2. **Scope check:** if findings expand scope, ask the user whether to include all of it, trim, or defer.
 3. Add/modify/remove stories. Re-check for new gaps. Update parties if new actors emerged.
 4. Confirm final story list.
+5. Append every scope delta to `epic.json.scope_history[]` (trigger + added/removed/modified/deferred). The current state always lives in `state.json`; this is the change log so Phase 10 can show how scope evolved and resume can explain why the story list looks the way it does.
 
 Never let spikes silently explode the story count — the user decides scope.
 
 ## Phase 7: Technical Guidance
 
-Ask one at a time, skipping anything already known:
+Ask one at a time, skipping anything already known. Each answer lands in a named slot under `epic.json.technical_context` (full schema in `references/epic-schema.json`):
 
 1. **Repos** — if `<skill-path>/data/{PROJECT}/repos.json` exists, list the registered repos and ask which apply to this epic / whether to add new ones. For *adding, updating, or removing* repos, hand off to the `repos` skill (it owns the auto-detection, schema validation, and prompts) rather than gathering fields inline. The on-disk shape is defined by `references/repos-schema.json`.
-2. Architectural constraints or patterns.
-3. Existing infrastructure to integrate with.
-4. Testing approach preferences.
-5. Non-functional requirements.
+2. **Architectural patterns** → `technical_context.patterns.{honor,avoid}`.
+3. **Existing infrastructure to integrate with** → `technical_context.infrastructure.{integrate_with,do_not_integrate,gating}`.
+4. **Testing approach** → `technical_context.testing.{backend,frontend,e2e}`.
+5. **Non-functional requirements** (performance, concurrency, reliability, observability, security, accessibility, browser support, cost, i18n) → `technical_context.non_functional.*`.
+
+The Phase 7 gate (on 0.6.0+ epics) requires at least one of `testing` / `non_functional` / `infrastructure` / `patterns` to be populated — small projects may legitimately not cover all four.
 
 Repos are project-level, shared across all epics. Stories reference them by `name`. Wave-gate agents resolve `${APP_URL}` per-repo from `repos.json[].testing.app_url`.
 
@@ -154,7 +158,7 @@ Write the Definition of Done per story; produce mocks for visual stories. Every 
 
 Three things happen in this phase. Load `references/mocks-and-cross-repo.md` for full protocol on the first two:
 
-- **Mocks** (two-phase: foundational sequential, detail parallel; foundational approval locks design direction).
+- **Mocks** (two-phase: foundational sequential, detail parallel; foundational approval locks design direction). The structured design system summary lands in `epic.json.design_direction.shell_summary` (colors, typography, spacing, layout, components — see `references/epic-schema.json`). On 0.6.0+ epics, the Phase 8 gate requires `shell_summary` to be a populated object whenever `design_direction.locked === true`, so detail mocks inherit the visual DNA deterministically and the spec renders the design system as data.
 - **Cross-repo auto-split** (if a story touches multiple repos, split into `US-005a` / `US-005b` along repo boundaries with explicit dependencies).
 - **DOD + priority/dependencies/complexity** per story.
 
@@ -231,6 +235,7 @@ The pressure to skip phases or fudge gates always sounds reasonable in the momen
 | "Phase gate validator is complaining about a tiny field — I'll just bump `current_phase`." | The gates exist because LLM perception drifts from actual state. Fix the field, re-run, advance. |
 | "I have enough context to skip Phase 3 / Phase 5 / mocks." | Each phase narrows ambiguity the next one depends on. Skipping moves the cost forward, doesn't remove it. |
 | "User keeps adding stories mid-Phase 3." | New stories ≠ gaps. Integrate them, re-assess existing stories against the new context, continue. |
+| "This decision/scope-delta/NFR doesn't fit the schema — I'll write a `gap_analysis.md` / `rescope.md` / `technical_guidance.md` sidecar." | If it's load-bearing for Phase 10/11, it belongs in `epic.json` (`decisions[]`, `scope_history[]`, `technical_context`, `design_direction.shell_summary` — schema in `references/epic-schema.json`). Sidecars are invisible to the spec generator and are lost on resume. The recurring urge to add a sidecar means the schema needs a new field — propose it, don't sidestep. |
 
 ### Conversational stance
 

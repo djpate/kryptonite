@@ -8,7 +8,7 @@ Mocks are produced in two strict phases. The reason: an app's visual DNA (shell,
 
 ### Identify visual stories
 
-Mark visual stories with `"has_mock": true` in `state.json`. Then classify each into one of two phases:
+Mark visual stories with `"has_mock": true` in `state.json` (per-story flag). The shared design direction lives at the epic level — `epic.json.design_direction` (see `references/epic-schema.json`). Then classify each visual story into one of two phases:
 
 #### Phase A — Foundational Mocks (sequential)
 
@@ -32,8 +32,8 @@ Mark each visual story with `"mock_phase": "foundational"` or `"mock_phase": "de
 2. Open the **`/compare`** view for the user — fullscreen side-by-side previews with click-to-pick
 3. User picks their preferred option
 4. Orchestrator reads selections from `/api/selections`
-5. After all foundational mocks are approved, record the **design system summary** in `state.json`: colors, typography, spacing, component patterns, nav style, layout grid
-6. Lock direction automatically after foundational phase completes
+5. After all foundational mocks are approved, record the **design system summary** in `epic.json.design_direction.shell_summary` as a structured object: `nav`, `header`, `layout`, `colors` (`primary`/`secondary`/`surface`/`bg`/`text`), `typography`, `spacing`, `components`. The Phase 8 gate (on 0.6.0+ epics) requires this object to be populated whenever `design_direction.locked === true` — detail-mock Designer agents read it as their inheritance contract.
+6. Lock direction automatically after foundational phase completes (`design_direction.locked = true`, `locked_after_phase = "foundational"`).
 
 ### Phase B execution
 

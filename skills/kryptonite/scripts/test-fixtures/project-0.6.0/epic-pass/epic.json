@@ -1,0 +1,106 @@
+{
+  "name": "Fixture epic for 0.6.0 gate validation",
+  "slug": "epic-pass",
+  "description": "Synthetic epic exercising the 0.6.0 gate requirements for phases 3, 6, 7, and 8.",
+  "status": "active",
+  "current_phase": 8,
+  "kryptonite_version": "0.6.0",
+  "created_at": "2026-05-28",
+  "completed_at": null,
+  "parties": [
+    {
+      "name": "admin",
+      "description": "Internal staff who configure the system."
+    },
+    {
+      "name": "user",
+      "description": "End user who interacts with features."
+    }
+  ],
+  "technical_context": {
+    "testing": {
+      "backend": {
+        "framework": "RSpec",
+        "run_command": "bundle exec rspec",
+        "conventions": ["Factories with transactional rollback"]
+      },
+      "frontend": {
+        "framework": "Vitest",
+        "run_command": "pnpm vitest run"
+      },
+      "e2e": {
+        "approach": "Per-wave Chrome MCP validation only — no checked-in suite."
+      }
+    },
+    "non_functional": {
+      "performance": [
+        { "metric": "page-load p95", "target": "1.5s" }
+      ]
+    },
+    "infrastructure": {
+      "integrate_with": [
+        { "system": "auth", "purpose": "Re-use existing session plumbing", "interface": "cookie" }
+      ]
+    },
+    "patterns": {
+      "honor": ["Use existing logging conventions"],
+      "avoid": ["Skip-policy macros"]
+    }
+  },
+  "design_direction": {
+    "locked": true,
+    "locked_after_phase": "foundational",
+    "established_from": "US-001",
+    "foundational_stories": ["US-001"],
+    "detail_stories": ["US-002"],
+    "approved_mocks": ["US-001"],
+    "shell_summary": {
+      "nav": "Left sidebar, 240px",
+      "layout": "Sidebar + main content, 16px padding",
+      "colors": { "primary": "#10b981", "surface": "#ffffff", "text": "#1e293b" },
+      "typography": "Inter, 14px base",
+      "spacing": "4px grid"
+    }
+  },
+  "decisions": [
+    {
+      "id": "ADR-001",
+      "title": "Use HTTP polling instead of GraphQL subscriptions",
+      "status": "accepted",
+      "context": "Real-time progress UX is needed; subscriptions add transport complexity disproportionate to the requirement.",
+      "choice": "HTTP polling at 1–2s cadence with exponential backoff on idle.",
+      "alternatives": [
+        { "option": "GraphQL subscriptions", "rejected_because": "Requires ActionCable/AnyCable plumbing on the frontend; not viable in v2 timeline." }
+      ],
+      "consequences": [
+        "Polling cost is bounded and predictable.",
+        "No subscription transport in the schema."
+      ],
+      "source_phase": 3,
+      "related_stories": ["US-001"]
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "OQ-001",
+      "question": "Do we need per-account daily generation budgets at launch?",
+      "context": "Bedrock spend is unbounded; cost rails imply some cap is desirable but the launch volume is uncertain.",
+      "proposed_answer": "Soft cap 50/day, hard cap 200/day per account.",
+      "blocks": ["US-002"],
+      "source_phase": 3
+    }
+  ],
+  "scope_history": [
+    {
+      "phase": 6,
+      "timestamp": "2026-05-28T12:00:00Z",
+      "trigger": "Spike S3 (subscriptions) returned: not viable.",
+      "added": [],
+      "removed": [],
+      "modified": [
+        { "id": "US-001", "fields": ["acceptance_criteria"], "reason": "Switched to HTTP polling per ADR-001." }
+      ],
+      "deferred": []
+    }
+  ]
+}

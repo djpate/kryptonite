@@ -1,0 +1,9 @@
+{
+  "repos": [
+    {
+      "name": "fixture-app",
+      "path": "/tmp/fixture-app",
+      "stack": "rails-vue"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Phase 3 Gate — 0.6.0 supplemental",
+  "description": "Phase 3 produces structured decisions (and possibly open questions). Each gap probe the interviewer confirms with the user lands as an ADR in epic.json.decisions[]; unresolved gaps land as OQs in epic.json.open_questions[]. An empty decisions[] at Phase 3 close means nothing was actually probed — block until the interviewer records what was decided.",
+  "type": "object",
+  "required": ["epic"],
+  "properties": {
+    "epic": {
+      "type": "object",
+      "required": ["decisions"],
+      "properties": {
+        "decisions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "epic-schema.json#/properties/decisions/items" }
+        },
+        "open_questions": {
+          "type": "array",
+          "items": { "$ref": "epic-schema.json#/properties/open_questions/items" }
+        }
+      }
+    }
+  }
+}

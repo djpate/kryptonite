@@ -1,0 +1,61 @@
+{
+  "stories": [
+    {
+      "id": "US-001",
+      "type": "feature",
+      "party": "admin",
+      "repo": "fixture-app",
+      "statement": {
+        "as_a": "admin",
+        "i_want": "to see real-time generation progress",
+        "so_that": "I know whether the request is healthy without refreshing"
+      },
+      "acceptance_criteria": ["Progress feed updates within 2s of phase change."],
+      "definition_of_done": [
+        {
+          "description": "Progress endpoint returns current phase",
+          "validation": {
+            "method": "curl",
+            "command": "curl -s ${APP_URL}/api/progress",
+            "expect": "200"
+          }
+        }
+      ],
+      "priority": "high",
+      "dependencies": [],
+      "estimated_complexity": "moderate",
+      "has_mock": true,
+      "mock_phase": "foundational",
+      "mock_approved": true
+    },
+    {
+      "id": "US-002",
+      "type": "feature",
+      "party": "user",
+      "repo": "fixture-app",
+      "statement": {
+        "as_a": "user",
+        "i_want": "to view scenarios",
+        "so_that": "I can pick one to run"
+      },
+      "acceptance_criteria": ["Scenario list renders under 1.5s."],
+      "definition_of_done": [
+        {
+          "description": "Page renders 200",
+          "validation": {
+            "method": "curl",
+            "command": "curl -s ${APP_URL}/scenarios",
+            "expect": "200"
+          }
+        }
+      ],
+      "priority": "high",
+      "dependencies": ["US-001"],
+      "estimated_complexity": "simple",
+      "has_mock": true,
+      "mock_phase": "detail",
+      "mock_approved": true
+    }
+  ],
+  "waves": []
+}

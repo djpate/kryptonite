@@ -98,15 +98,16 @@ If resuming: read `epic.json` → `current_phase` tells you exactly where to pic
 
 ## epic.json contents
 
-Each epic stores its own context:
-- `name`, `slug`, `description`
-- `status` — `active` / `completed`
-- `current_phase` — integer (1-12) indicating which phase the epic is in. Updated as you progress. Resume reads this directly.
-- `kryptonite_version` — the version of kryptonite that created this epic (from `package.json`). Used to determine which schema features were available at creation time and whether migration is needed.
-- `created_at`, `completed_at`
-- `parties` — array of `{name, description, auth}`
-- `technical_context` — shared patterns, non-repo-specific config
-- `design_direction` — `{locked, established_from, notes, approved_mocks, shell_summary}`
+The full shape is defined by `references/epic-schema.json`. In addition to identity fields (`name`, `slug`, `description`, `status`, `current_phase`, `kryptonite_version`, `created_at`, `completed_at`), `epic.json` is the home for **everything the conversational phases produce** other than per-story data:
+
+- `parties[]` — Phase 4 actors (`{name, description, auth}`)
+- `decisions[]` — Phase 3 ADRs, lifted into `spec.json.architecture.decisions[]` in Phase 10
+- `open_questions[]` — Phase 3 OQs, lifted into `spec.json.open_questions[]` in Phase 10
+- `scope_history[]` — Phase 6 scope-delta log
+- `technical_context` — Phase 7 testing / non-functional / infrastructure / patterns
+- `design_direction` — Phase 8 mock approval state + structured `shell_summary`
+
+If a phase produces content with no slot above, the schema needs another field. Adding load-bearing content as a sidecar `.md` file makes it invisible to the spec generator and lost on resume — see the "Discipline" rationalization table in `SKILL.md`.
 
 Repos are NOT stored per-epic — they come from the project-level `repos.json`.
 
