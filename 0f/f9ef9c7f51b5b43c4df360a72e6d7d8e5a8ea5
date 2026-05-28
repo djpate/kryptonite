@@ -1,0 +1,73 @@
+skills/kryptonite/agents/spec-critic.md
+  s_09366298fe5966::t_3b297791f235ef 1-6
+skills/kryptonite/references/active-schema.json
+  s_09366298fe5966::t_845a2acbc95371 1-30
+skills/kryptonite/agents/researcher.md
+  s_09366298fe5966::t_cab453c66495cc 1-6
+skills/kryptonite/references/registry-schema.json
+  s_09366298fe5966::t_69cf1402dfaada 1-52
+skills/kryptonite/references/wave-gate-report-schema.json
+  s_6ff8dbe924a63f::t_961c47253b0a6f 18
+skills/kryptonite/references/phase-gates.md
+  s_09366298fe5966::t_bd5efdeb8e8683 1-53
+skills/kryptonite/agents/interviewer.md
+  s_09366298fe5966::t_a1b29cb13b8a5d 1-4
+  s_6ff8dbe924a63f::t_c7a01a14cb1121 8,10,12,14-17,19,21-24,26,28,30,32,34,36,38,44-52,54,56-61
+skills/kryptonite/references/mocks-and-cross-repo.md
+  s_09366298fe5966::t_76ced8c5346e75 1-85
+skills/kryptonite/agents/plan-critic.md
+  s_09366298fe5966::t_81fc7f66228e07 1-6
+skills/kryptonite/agents/designer.md
+  s_09366298fe5966::t_8ea2beff78cf63 1-6
+skills/kryptonite/references/state-machine.md
+  s_09366298fe5966::t_0c6ecf69ee436a 1-83
+skills/kryptonite/agents/orchestrator.md
+  s_6ff8dbe924a63f::t_25362f73e46a02 8,12,16-19,21,23,25-26,28,30,32-34,36-40,42-45,47-50,52-65,67-72
+skills/kryptonite/references/storage-protocol.md
+  s_09366298fe5966::t_9b43d680ca8a2b 1-139
+skills/repos/SKILL.md
+  s_720c5d8aa8f43e::t_d833feb3a8440b 8-12,22-33
+  s_720c5d8aa8f43e::t_5e59f4eb57a0b9 39,64,88,99
+  s_6ff8dbe924a63f::t_60bbb9d2353010 3
+  s_720c5d8aa8f43e::t_32af80aae423be 120-126
+  s_09366298fe5966::t_d7024757a47a32 131
+skills/kryptonite/references/spec-versioning.md
+  s_09366298fe5966::t_0000c8d59ab61b 1-87
+skills/kryptonite/evals/evals.json
+  s_09366298fe5966::t_4eace94d9299cf 21-23,41-57
+  s_6ff8dbe924a63f::t_79475b74e81b39 69
+  s_720c5d8aa8f43e::t_c2b304106b2e4e 6-18,24-40,72-87,93-107,123
+  s_6ff8dbe924a63f::t_a91c0e5d1298a1 58-68,70-71,88-92,108-122
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "0ff9ef9c7f51b5b43c4df360a72e6d7d8e5a8ea5",
+  "prompts": {},
+  "sessions": {
+    "s_09366298fe5966": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eac31360-290c-46c3-a9ec-be972b27c6bb",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    },
+    "s_6ff8dbe924a63f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "53e81008-5007-4ed9-ab7c-021950228472",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    },
+    "s_720c5d8aa8f43e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bb6cf098-0002-4b1c-b6d1-092beb30d1ce",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
