@@ -63,6 +63,7 @@ Skipping ahead to code is the most common way kryptonite projects fail — agent
 5. Spikes
 6. Re-scope from spike findings
 7. Technical guidance + repo registration
+7.5. Repo conventions preflight
 8. DOD & mocks
 9. Schema validation gate
 10. Spec generation + Spec Critic
@@ -152,6 +153,33 @@ The Phase 7 gate (on 0.6.0+ epics) requires at least one of `testing` / `non_fun
 
 Repos are project-level, shared across all epics. Stories reference them by `name`. Wave-gate agents resolve `${APP_URL}` per-repo from `repos.json[].testing.app_url`.
 
+## Phase 7.5: Repo Conventions Preflight
+
+For each repo this epic uses, populate `repos.json[].conventions` by **reading the repo** — not by asking the user. Phase 7.5 exists because pre-0.7.0 epics regularly burned dozens of agent runs on wrong assumptions about app-root, test runner, or directory layout. Verified facts cost minutes here and save days later.
+
+Required slots (full schema in `references/repos-schema.json`):
+
+| Slot | How to populate |
+|------|-----------------|
+| `app_root` | Read `WORKDIR` from `Dockerfile`; or the service's `working_dir` in `docker-compose.yml`. If neither exists and the app runs locally, set to `"."`. |
+| `test_runner.{backend,frontend,e2e}` | For each surface that exists: detect the runner (`Gemfile` → rspec/minitest, `package.json` `scripts.test` → jest/vitest/playwright, `pytest.ini` / `pyproject.toml` → pytest, `go.mod` → go test). Record `name`, exact `invocation` (with flags), and `config_path`. Don't guess — if you can't find it, ask the user once. |
+| `directory_layout` | Run a directory scan for the artifact types this project uses (resolvers, mutations, models, workers, components, locales, …). Only record keys whose paths actually exist. Don't seed unused keys with `null`. |
+| `assertion_shapes` | Optional, but high-value when the project has consistent patterns (e.g. GraphQL auth-failure shape differs between resolvers and mutations). Capture by reading 2–3 existing examples in the repo and recording the verified shape. |
+| `schema_introspection_command` | The command that dumps a **non-empty** schema artifact. A naive dump can produce an empty file (some stacks gate field visibility by scope/warden). Verify it emits content before recording it. |
+| `compile_gate_command` | The dev-server-safe compile/typecheck command. A full production build can fail against a running dev-server container (busy output volume) — record the safe equivalent. |
+| `test_db_setup` | The command that provisions/migrates the shared test DB to a populated state. Some repos bootstrap via migrations on a prebuilt structure, not `schema:load`. The orchestrator runs this once per wave. |
+| `test_data_gotchas` | Project-specific factory/test-data traps (e.g. "`create(:owner)` twice collapses into one account"). Fed to every Coder so N parallel coders don't each rediscover the same trap. |
+| `grep_gotchas` | Where a "grep for token X" DOD check would false-match prose/comments — record the precise anchored pattern instead. |
+| `verified_at` | ISO timestamp of the verification you just performed. |
+
+**The core principle: DOD validation commands authored in Phase 8 encode environment assumptions, and those assumptions must be verified against the live repo HERE — not discovered at gate time.** Every environment-dependent command class belongs in `conventions`, verified by *running it* (or reading the repo), so Phase 8 authoring and Phase 12 coders reference a checked fact instead of guessing. The recurring failure: an agent writes a plausible command (`pnpm build`, a naive schema dump, a bare `bundle exec rspec`, `grep skip_policy!`) that's wrong in *this* repo, and it isn't caught until a wave gate fails on it across many stories at once.
+
+If the repos skill (`skills/repos`) is involved (`add a repo` or `update repo`), it auto-detects defaults and asks you to confirm. If a repo is already registered without `conventions`, run Phase 7.5 against it now.
+
+The Phase 7.5 gate (`scripts/phase-gates/07_5.json` on 0.7.0+ epics) requires every repo referenced by stories in this epic to have a populated `conventions` block — at minimum `app_root`, one `test_runner` entry, and a non-empty `directory_layout`. This gate runs before Phase 8 advances.
+
+The DOD authoring step (Phase 8) and Coder dispatch (Phase 12) both read `conventions` directly. Don't restate the values in stories — reference them.
+
 ## Phase 8: DOD & Mocks
 
 Write the Definition of Done per story; produce mocks for visual stories. Every DOD item must be automatable: `curl`, `chrome_mcp`, `test_suite`, or `file_exists` (per `references/story-schema.json`). If a proposed DOD item can't be verified by one of those, **rewrite it** — vague items like "looks good" or "works correctly" do not ship.
@@ -236,6 +264,7 @@ The pressure to skip phases or fudge gates always sounds reasonable in the momen
 | "I have enough context to skip Phase 3 / Phase 5 / mocks." | Each phase narrows ambiguity the next one depends on. Skipping moves the cost forward, doesn't remove it. |
 | "User keeps adding stories mid-Phase 3." | New stories ≠ gaps. Integrate them, re-assess existing stories against the new context, continue. |
 | "This decision/scope-delta/NFR doesn't fit the schema — I'll write a `gap_analysis.md` / `rescope.md` / `technical_guidance.md` sidecar." | If it's load-bearing for Phase 10/11, it belongs in `epic.json` (`decisions[]`, `scope_history[]`, `technical_context`, `design_direction.shell_summary` — schema in `references/epic-schema.json`). Sidecars are invisible to the spec generator and are lost on resume. The recurring urge to add a sidecar means the schema needs a new field — propose it, don't sidestep. |
+| "I'll stash what this wave taught me in `state.deferred_findings` / a notes field / the handoff prompt." | Phase-12 discoveries belong in `epic.json.findings[]` (schema in `references/epic-schema.json`; capture/curation in `references/execution-protocol.md`). `state.json` is sliced for dispatch and is the wrong home; a growing handoff prompt is the symptom this field exists to cure. Durable *repo* facts get promoted into `repos.json` conventions. |
 
 ### Conversational stance
 

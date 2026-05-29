@@ -57,6 +57,12 @@ Per `references/execution-protocol.md`, each wave in `state.json.waves[]` includ
 - `merged_to_main_at` — ISO timestamp
 - `gate_runs[]` — immutable history of gate attempts. Each entry contains the four gate statuses (`pass`/`fail`/`blocked`) with `report_path`, plus `issues[]` with `fix_attempts[]` for adaptive retry tracking
 
+**Findings are NOT in `state.json`.** Durable execution discoveries live in
+`epic.json.findings[]` (see `references/execution-protocol.md` → "Findings" and
+`references/epic-schema.json`). This intentionally replaces the earlier ad-hoc
+`state.json.deferred_findings[]` — `state.json` is execution scratch (large, sliced for dispatch);
+findings are durable records that belong beside `decisions[]`/`scope_history[]` in `epic.json`.
+
 ## Dashboard
 
 The `/dashboard` route (served by `scripts/comment-server.js`) renders a live view of `state.json`: progress bar, wave breakdown, latest gate statuses (UAT/UX/spec compliance/code review with pass/fail/blocked), commit SHAs, agent attribution, and amendment markers.
