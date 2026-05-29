@@ -129,6 +129,30 @@
         }
       }
     },
+    "candidate_findings": {
+      "type": "array",
+      "description": "OPTIONAL. Durable lessons this agent nominates for persistence into epic.json.findings[]. Advisory only — the orchestrator curates and decides what to keep. Distinct from issues[] (those drive the fix loop) and from code_review's findings[] (the full per-review list). Nominate things future waves/resumes need: a repo trap you hit, a spec ambiguity, a regression risk later waves must watch, or a process lesson.",
+      "items": {
+        "type": "object",
+        "required": ["category", "summary"],
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": ["process", "repo_gotcha", "spec_gap", "regression_risk", "deferred_defect"]
+          },
+          "summary": { "type": "string", "minLength": 10 },
+          "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
+          "story": { "type": "string", "pattern": "^US-\\d{3,}[a-z]?$" },
+          "file": { "type": "string" },
+          "suggested_audience": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["orchestrator", "coder", "gate", "human"] }
+          },
+          "owner_followup": { "type": "string" }
+        }
+      }
+    },
     "issues": {
       "type": "array",
       "description": "Blocking issues — only those that fail the gate (critical/high). Each has a dedup_key for the orchestrator's fix loop.",
