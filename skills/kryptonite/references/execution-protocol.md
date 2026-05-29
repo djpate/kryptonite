@@ -188,8 +188,10 @@ If a repo has no `testing` block:
 
 | Trigger | Action |
 |---------|--------|
-| Story merged | Remove story worktree + delete story branch |
-| Wave Phase A complete | Remove wave-N worktree + delete wave-N branch |
+| Story patch applied (A2) | Remove that story's detached checkout `../patchgen-wave-N-US-XXX` |
+| Story merged (worktree_parallel) | Remove story worktree + delete story branch |
+| Wave Phase A complete | Remove wave-N worktree + delete wave-N branch (worktree_parallel) |
+| A2 aborts mid-loop | Remove all remaining `../patchgen-*` detached checkouts for the wave; record any failed removal in `state.json.orphaned_worktrees[]` |
 | Wave complete | (already cleaned) |
 | User aborts | Remove all non-main worktrees, record orphans in state.json |
 | Cleanup command | Force-remove orphaned worktrees |
