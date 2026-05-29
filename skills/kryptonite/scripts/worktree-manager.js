@@ -44,6 +44,24 @@ export function createWorktree(repoPath, branchName, worktreePath, baseBranch) {
   return { ok: true, path: worktreePath, branch: branchName };
 }
 
+export function createDetachedCheckout(repoPath, checkoutPath, ref) {
+  if (fs.existsSync(checkoutPath)) {
+    return { ok: false, error: `Checkout path already exists: ${checkoutPath}` };
+  }
+  const add = tryRun(`git -C "${repoPath}" worktree add --detach "${checkoutPath}" ${ref}`);
+  if (!add.ok) return { ok: false, error: `Failed to add detached checkout: ${add.error}` };
+  return { ok: true, path: checkoutPath, ref };
+}
+
+export function applyPatch(repoPath, patchPath) {
+  const res = tryRun(`git -C "${repoPath}" am --3way "${patchPath}"`);
+  if (res.ok) return { ok: true };
+  // Non-clean apply: abort the in-progress am so the working tree is clean
+  // and the orchestrator can re-dispatch the coder in rebase mode.
+  tryRun(`git -C "${repoPath}" am --abort`);
+  return { ok: false, conflict: true, error: res.error };
+}
+
 export function removeWorktree(repoPath, worktreePath, opts = {}) {
   if (!fs.existsSync(worktreePath)) {
     return { ok: true, alreadyGone: true };
