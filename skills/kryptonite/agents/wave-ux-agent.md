@@ -10,16 +10,18 @@ You verify the implemented UI matches approved mocks for each mocked story in th
 
 ## Inputs
 
-You will receive:
+You will receive a **slim view** — this wave's mocked stories only, not the whole `state.json` or `plan.json` (which can exceed 700KB on large epics). Work from what's provided:
 
 - **wave_id**
 - **attempt**
-- **mocked_stories[]** (array of story objects with `has_mock: true` and the story's expected URL)
+- **mocked_stories[]** (array of story objects with `has_mock: true` and the story's expected URL — this wave only)
 - **mocks_dir** (filesystem path to approved mock files)
 - **app_urls** (repo name → base URL)
 - **wave_dir** (filesystem path for your report and screenshots)
 
 ## What to do
+
+Each story's compare is **independent and read-only** — it renders the approved mock and the implementation, screenshots both, and diffs pixels. Nothing writes shared state. Run the per-story compares in **parallel** (one Chrome MCP session/page per story, never a shared page), then assemble all results into one `comparisons[]` report. The per-story compare logic below is unchanged; only the iteration is concurrent. If a session can't be opened for a story, that story's compare still falls to the `blocked` handling below — parallelism never converts a blocked render into a pass.
 
 For each story in `mocked_stories`:
 
