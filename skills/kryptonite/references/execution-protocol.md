@@ -7,7 +7,7 @@ This document defines Phase 12 (execution). It is the authority — the SKILL.md
 If any of these fail, stop. Phases 1–11 still produced a usable spec + plan; surface the gap to the user rather than pretending Phase 12 ran.
 
 - **Chrome MCP is reachable.** Without it, UAT and UX gates can only return `blocked` and the wave will never advance.
-- **Git worktree support works** in every repo's filesystem. Some FUSE / network filesystems silently break `git worktree add`.
+- **Git worktree support works** in every repo's filesystem — *only required for repos in `worktree_parallel` mode*. Some FUSE / network filesystems silently break `git worktree add`; a repo that can't support worktrees (or mounts only its main worktree into a container) should declare `execution_mode: single_mounted_serial` (see "Execution modes").
 - **`repos.json` has a `testing` block** for every repo that needs a running service. A missing testing block skips that repo's gate checks with a warning, and the user is on the hook for manual verification.
 - **`plan.json` waves have `user_journeys[]` populated.** UAT and UX have nothing to walk otherwise.
 
@@ -31,31 +31,86 @@ Each wave has two phases.
 - `cancelled` — user cancelled
 - `deferred` — moved to a later wave
 
-## Phase A — Code Production
+## Execution modes
+
+Each repo declares `repos.json[].execution_mode` (default `worktree_parallel`). The mode decides how Phase A isolates story work; the wave/story state machine is **identical** either way — only the physical isolation differs.
+
+- **`worktree_parallel`** (default) — one git worktree per story at `../wave-N-US-XXX`; coders within a parallel group run concurrently; story branches merge into `wave-N`. This is the model the Phase A pseudocode below describes in full.
+- **`single_mounted_serial`** — work directly on the **main mounted worktree**; stories applied **sequentially** (one coder at a time, commit per story); no `../wave-N-US-XXX` worktrees and no per-story branches. Required when the dev env mounts only the main worktree into a container (every DOD runs `docker exec` against that one mount, so sibling-worktree code is invisible and untestable). There is no story-branch merge step — each story is committed straight onto `wave-N` in order.
+
+**Mode selection.** The orchestrator reads the `execution_mode` of every repo a wave touches. If they agree, use that mode. If they differ, fall to `single_mounted_serial` for the wave (the safe subset) and log why. In `single_mounted_serial`, the "parallel" in "parallel group" is nominal — groups still define ordering (blocking first), but stories within a group run one at a time.
+
+## Phase A — Code Production (A1 parallel patch-gen → A2 serial apply)
+
+Phase A has two sub-phases. **A1 generates patches in parallel** (no container, no DB, no tests — pure source editing, so it is identical in both execution modes). **A2 applies them serially** onto the wave's mount. This is why the two execution modes collapse into one pipeline: the only mode-dependent variable is `apply_target` (the wave-N worktree vs. the main mount). All verification is Phase B; A1 verifies nothing.
 
 ```
-1. Set wave.status = "in_progress"
-2. Create branch wave-N from current main worktree's branch
-3. Create wave-N worktree at ../wave-N
-4. For each parallel_group in wave.parallel_groups:
-     For each story in group (parallel within group):
-       - Create branch wave-N/US-XXX from wave-N
-       - Create story worktree at ../wave-N-US-XXX
-       - Dispatch Coder
-       - Coder writes code + commits in story worktree
-       - Coder reports DONE
-     After all coders in group are DONE:
-       - For each story branch:
-           - Merge story branch → wave-N (merge commit, --no-ff)
-           - On conflict: dispatch Coder back to story worktree to resolve, retry
-           - Remove story worktree, delete story branch
-           - story.status = "merged"
-5. When all groups complete: Phase A done
+1.  wave.status = "in_progress"
+2.  Resolve execution_mode (decides apply_target ONLY, not A1)
+3.  apply_target =
+      worktree_parallel     → create branch wave-N from main worktree's branch; create wave-N worktree at ../wave-N
+      single_mounted_serial → the main worktree's branch (no wave-N worktree)
+    base_sha = current HEAD of apply_target's branch
+3.3 Provision shared test DB ONCE (before any coder is dispatched):
+     If any story in this wave touches the DB and the repo has conventions.test_db_setup:
+       - Run conventions.test_db_setup once, up front
+       - On failure: set wave.status = "blocked", surface as infrastructure (no fix loop), stop
+     A1 never touches the DB, so this is the only DB-provision point and the parallel-migrate race is structurally impossible.
+3.6 Order parallel groups: blocking groups (blocking: true) FIRST, then non-blocking.
+     A blocking group fully clears A2 (its patches applied + merged onto apply_target) BEFORE the
+     next group's A1 dispatches, so leaf coders' base_sha already contains the shared surface
+     (models, base classes, enums, schema). Re-read base_sha from apply_target HEAD before each
+     group's A1 — never cache it from wave start.
+4.  For each parallel_group (blocking groups first, per 3.6):
+    --- A1: generate patches (PARALLEL, both modes) ---
+      For each story in group, concurrently:
+        - createDetachedCheckout ../patchgen-wave-N-US-XXX @ base_sha
+          (git worktree add --detach; no branch, no container, no DB)
+        - Dispatch Coder in write-only mode with the slim per-story view
+          (story + AC + DOD + repo conventions + owned/reused shared_artifacts[].canonical_representation)
+        - Coder edits source, commits, runs NOTHING
+        - Coder reports DONE + files_changed[] + patch_path (git format-patch base_sha..HEAD)
+      BARRIER: wait for all coders in the group.
+    --- A2: apply + integrate (SERIAL, both modes; deterministic plan order, blocking owners first) ---
+      For each story's patch, IN ORDER:
+        - applyPatch(apply_target, patch_path)   # git am --3way
+        - On conflict (applyPatch returns conflict: true):  [PATCH-CONFLICT path = today's merge-conflict path]
+            orchestrator resolves inline if trivial, ELSE re-dispatch Coder in rebase mode
+            ("your patch no longer applies onto current tip; here is the hunk; re-emit against current HEAD"),
+            then retry applyPatch. This is a Phase A retry — NOT counted against max_fix_attempts.
+        - story.status = "merged"
+        - Remove that story's detached checkout (../patchgen-wave-N-US-XXX)
+4.5 End-of-wave actions (run AFTER all story merges onto apply_target, BEFORE merging wave-N into main):
+     For each entry in plan.waves[N].end_of_wave_actions[] (order preserved):
+       - Resolve cwd: apply_target (or repo path within it if `repo` is set)
+       - Run `command`
+       - On non-zero exit:
+           - Set wave.status = "blocked"
+           - Surface the failed action name + stderr to user
+           - Do NOT proceed to Phase B; do NOT enter fix loop (this is infrastructure-class)
+           - BREAK
+       - Stage and commit any resulting changes with `End-of-wave: <name>`
+     For each plan.waves[N].shared_registry_files[] entry with kind in {"merge", "regenerate"} that wasn't already covered by an explicit end_of_wave_actions[] entry:
+       - Run `regenerated_by` command in the same way; same failure handling
+     If wave.status == "blocked": stop here.
+5.  When all groups complete and step 4.5 succeeded: Phase A done
 ```
+
+**Why this is safe.** A2's apply order is deterministic (plan order, blocking owners first) — identical to today's serial commit order. Conflicts are forced through rebase re-dispatch, never silently dropped. `git am --3way` preserves each story's commit (story ID in the message), so the integrated commit graph Phase B verifies is the same shape as today. Phase B runs every gate against the fully-integrated running system, unchanged.
+
+**Guardrail — intra-group source dependencies (G1).** Parallel A1 means a coder cannot read a sibling story's not-yet-generated code (every checkout is at the same `base_sha`). A true intra-group source dependency MUST be expressed as a blocking-group split (the owner lands first, in an earlier group), per `references/plan-assembly.md`. Do not place two stories where one reads the other's new code in the same non-blocking group.
 
 ## Phase B — Wave Validation
 
 ```
+0. Preflight requirements check:
+     For each entry in plan.preflight_requirements[] where wave-N ∈ blocks_waves:
+       - Run `verification` (same machinery as DOD validation: curl/chrome_mcp/test_suite/file_exists)
+       - If verification fails:
+           - Set wave.status = "blocked"
+           - Surface the requirement.id, description, owner, documentation_url
+           - Do NOT proceed; do NOT enter fix loop (this is human-gated, not a code defect)
+           - BREAK out of Phase B
 1. Merge wave-N → main worktree's working branch (merge commit)
 2. Remove wave-N worktree, delete wave-N branch
 3. Read repos.json for testing config of wave's affected repos
@@ -91,12 +146,16 @@ Each wave has two phases.
           - else:
               dispatch fix per strategy
               merge fix → main worktree's branch
+              after the fix, verify the changed code by running ONLY the spec file(s)
+                for the changed code, SERIALLY — never the wave's full spec set
               if changed_files affects services:
                   restart affected services
 
 8. If wave.status != "complete" after max attempts:
      surface to user for decision
 ```
+
+**Verify per-changed-file, serially.** When a fix lands, run only the spec file(s) covering the changed code — not the whole wave's suite. Two reasons: (a) a full suite is minutes per pass and is the biggest wall-clock sink in a large Rails repo; (b) serial, narrow runs cut contention on the shared test DB (see step 3.3). Accumulated per-file green results ARE the wave's ground truth — there is no value in a final giant all-files run, and it actively slows the wave.
 
 ## Adaptive Retry Strategies
 
