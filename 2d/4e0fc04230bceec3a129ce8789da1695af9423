@@ -1,0 +1,20 @@
+skills/kryptonite/references/storage-protocol.md
+  s_718d1f74ab9a30::t_170d577e483702 97-131
+  s_718d1f74ab9a30::t_6addb27a2c493e 144-146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "2d4e0fc04230bceec3a129ce8789da1695af9423",
+  "prompts": {},
+  "sessions": {
+    "s_718d1f74ab9a30": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3595c57b-6010-4791-9fed-475a3c9be136",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
