@@ -25,7 +25,7 @@ Each wave has two phases.
 ### Story statuses
 - `pending` — not yet dispatched
 - `in_progress` — Coder dispatched, code being written
-- `merged` — story branch merged into wave-N branch
+- `merged` — story patch applied onto apply_target (git am --3way onto wave-N in worktree_parallel, or onto the main branch in single_mounted_serial). No per-story branch exists.
 - `done` — wave passed all gates; set retroactively when wave completes
 - `blocked` — wave failed gates and user chose to defer this story
 - `cancelled` — user cancelled
@@ -33,12 +33,12 @@ Each wave has two phases.
 
 ## Execution modes
 
-Each repo declares `repos.json[].execution_mode` (default `worktree_parallel`). The mode decides how Phase A isolates story work; the wave/story state machine is **identical** either way — only the physical isolation differs.
+Each repo declares `repos.json[].execution_mode` (default `worktree_parallel`). The mode decides ONLY the `apply_target` for sub-phase A2 (where patches are applied) — A1 patch generation is identical in both modes (parallel, one `../patchgen-*` detached checkout per story). The wave/story state machine is **identical** either way; only the physical apply target differs.
 
-- **`worktree_parallel`** (default) — one git worktree per story at `../wave-N-US-XXX`; coders within a parallel group run concurrently; story branches merge into `wave-N`. This is the model the Phase A pseudocode below describes in full.
-- **`single_mounted_serial`** — work directly on the **main mounted worktree**; stories applied **sequentially** (one coder at a time, commit per story); no `../wave-N-US-XXX` worktrees and no per-story branches. Required when the dev env mounts only the main worktree into a container (every DOD runs `docker exec` against that one mount, so sibling-worktree code is invisible and untestable). There is no story-branch merge step — each story is committed straight onto `wave-N` in order.
+- **`worktree_parallel`** (default) — `apply_target` is a dedicated `wave-N` worktree on a `wave-N` branch (created in Phase A step 3). A2 applies each story's patch onto `wave-N`; Phase B merges `wave-N` into the main working branch.
+- **`single_mounted_serial`** — `apply_target` is the main worktree's branch directly; there is NO `wave-N` worktree or branch. A2 applies each story's patch straight onto the main branch in order. Required when the dev env mounts only the main worktree into a container (every DOD runs `docker exec` against that one mount, so sibling-worktree code is invisible and untestable) — which is exactly why verification (Phase B) runs serially on that single mount.
 
-**Mode selection.** The orchestrator reads the `execution_mode` of every repo a wave touches. If they agree, use that mode. If they differ, fall to `single_mounted_serial` for the wave (the safe subset) and log why. In `single_mounted_serial`, the "parallel" in "parallel group" is nominal — groups still define ordering (blocking first), but stories within a group run one at a time.
+**Mode selection.** The orchestrator reads the `execution_mode` of every repo a wave touches. If they agree, use that mode. If they differ, fall to `single_mounted_serial` for the wave (the safe subset) and log why. In BOTH modes A1 patch generation runs in parallel and A2 apply is serial — the modes differ only in whether A2 applies onto a `wave-N` worktree or the main mount.
 
 ## Phase A — Code Production (A1 parallel patch-gen → A2 serial apply)
 
@@ -111,8 +111,10 @@ Phase A has two sub-phases. **A1 generates patches in parallel** (no container, 
            - Surface the requirement.id, description, owner, documentation_url
            - Do NOT proceed; do NOT enter fix loop (this is human-gated, not a code defect)
            - BREAK out of Phase B
-1. Merge wave-N → main worktree's working branch (merge commit)
-2. Remove wave-N worktree, delete wave-N branch
+1. worktree_parallel: merge wave-N → main worktree's working branch (merge commit)
+   single_mounted_serial: NO-OP — A2 already applied patches directly onto the main branch
+2. worktree_parallel: remove wave-N worktree, delete wave-N branch
+   single_mounted_serial: NO-OP — no wave-N worktree or branch exists in this mode
 3. Read repos.json for testing config of wave's affected repos
 4. Start services per repos[].testing.start_command
 5. Wait for ready_signal or health_check
@@ -199,8 +201,7 @@ If a repo has no `testing` block:
 | Trigger | Action |
 |---------|--------|
 | Story patch applied (A2) | Remove that story's detached checkout `../patchgen-wave-N-US-XXX` |
-| Story merged (worktree_parallel) | Remove story worktree + delete story branch |
-| Wave Phase A complete | Remove wave-N worktree + delete wave-N branch (worktree_parallel) |
+| Wave merged to main (Phase B step 2, worktree_parallel) | Remove wave-N worktree + delete wave-N branch |
 | A2 aborts mid-loop | Remove all remaining `../patchgen-*` detached checkouts for the wave; record any failed removal in `state.json.orphaned_worktrees[]` |
 | Wave complete | (already cleaned) |
 | User aborts | Remove all non-main worktrees, record orphans in state.json |
