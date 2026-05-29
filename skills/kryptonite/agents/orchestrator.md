@@ -18,12 +18,25 @@ The orchestrator is not a dispatched subagent. It runs in the main session. You 
 3. `state.json` — current execution state.
 4. `repos.json` — testing config per repo.
 
+**On resume (current_phase == 12):** before dispatching anything, run the Phase-12 resume routine
+in `references/storage-protocol.md` — self-heal (`reconcileState`: materialize the next wave,
+backfill missing gate_runs) then print the resume digest from `epic.json.findings[]` + state + git.
+
 ## Per-wave loop
 
 Drive the loop **as defined in `references/execution-protocol.md`**. Two phases per wave:
 
 - **Phase A (A1 → A2)** — resolve the wave's **execution mode** from `repos.json[].execution_mode` (this decides `apply_target` only: a `wave-N` worktree for `worktree_parallel`, the main mount for `single_mounted_serial`). Provision the shared test DB **once** up front (`conventions.test_db_setup`). Then, for each parallel group (blocking groups first): **A1 — generate patches in parallel** — one detached checkout per story (`createDetachedCheckout` at `base_sha`, no container/DB), dispatch each Coder a slim per-story view + any owned/reused `shared_artifacts[].canonical_representation`; each Coder edits, commits, runs nothing, returns a `patch_path`. **A2 — apply serially** — `applyPatch` (`git am --3way`) each patch onto `apply_target` in plan order; on conflict re-dispatch the Coder in rebase mode (a Phase A retry, NOT counted against `max_fix_attempts`); set `story.status = "merged"`; remove the detached checkout. Re-read `base_sha` from `apply_target` HEAD before each group so leaf stories see the prior blocking group's shared surface. **After all merges**, run the wave's `end_of_wave_actions[]` (step 4.5) — a non-zero exit is infrastructure-class (pause, no fix loop). Per `references/execution-protocol.md`.
 - **Phase B** — merge wave-N → main worktree's branch (worktree_parallel; no-op in single_mounted_serial — A2 already committed onto main); start services per `repos.json[].testing`; dispatch the four gate agents in parallel; run the adaptive fix loop on failure. Fix-loop speed rules: fix **trivial** gate issues inline on the mount (single-file, mechanical, no logic change) instead of cold-starting a coder; batch service restarts **once** after all of an attempt's fixes merge (health-check before any gate dispatches); on subsequent attempts, **code_review** runs against the incremental fix diff only — **UAT, UX, and spec_compliance always re-run full** against the integrated system. Verify per-changed-file, serially — never the full wave suite. The UX gate runs its per-story compares in parallel (read-only renders, one session per story — no DB-write surface); UAT/spec-compliance/code-review dispatch is unchanged.
+
+**On wave-complete — curate findings.** When the wave flips to `complete`, before advancing:
+collect `candidate_findings[]` from the four gate reports and any `CANDIDATE_FINDINGS:` blocks in
+coder reports, dedup against existing `epic.json.findings[]` and drop anything already covered by a
+finding/ADR/convention, assign ids, set `forward_to_waves[]` on regression risks, and write the
+keepers to `epic.json.findings[]` (safe-write). Propose promotion of any durable `repo_gotcha` to
+`repos.json` conventions (user-confirmed). Full rules: `references/execution-protocol.md` →
+"Findings". This is also where `state.json.gate_runs[]` is recorded — do both writes before the
+next wave starts.
 
 When the protocol says "blocked," you pause for the user. When it says "all pass," you mark stories `done` and advance.
 
@@ -80,6 +93,13 @@ When the protocol says "blocked," you pause for the user. When it says "all pass
 | Code-defect failure still open at attempt 3 | Pause for user; honor their choice (fix manually / defer / replan / abort) without trying to be clever. |
 | Coder reports `NEEDS_CONTEXT` "I invented a representation/persistence/identity shape the spec didn't define" | **Halt the wave** (do not merge, do not let siblings proceed). The spec left a load-bearing data-model decision unmade and a parallel sibling is likely making it differently. Resolve it in the spec / the plan's `shared_artifacts[].canonical_representation`, then re-dispatch the affected coders with the pinned shape. Never reconcile after the fact. |
 | `git worktree remove` fails | Log to `state.json.orphaned_worktrees[]`, keep going. |
+
+**Auto-capture before every pause.** For each escalation above that pauses the user
+(`pause_for_user` at attempt 3, any `blocked` gate, an end-of-wave-action failure, or a Coder
+`NEEDS_CONTEXT` halt), write a finding to `epic.json.findings[]` BEFORE surfacing to the user —
+`category: process` (`spec_gap` for NEEDS_CONTEXT), `audience: [orchestrator, human]`,
+`resolution: open`, `source: "escalation: <which>"`, with `owner_followup` describing the choice
+the user faces. See `references/execution-protocol.md` → "Findings".
 
 ### Ultracode advisory
 
