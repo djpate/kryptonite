@@ -1,0 +1,21 @@
+skills/kryptonite/scripts/worktree-manager.test.js
+  s_51f223526ac7e6::t_7148685030ece4 23-24,39-40
+  s_51f223526ac7e6::t_caf39428b0f41a 25-38
+  s_51f223526ac7e6::t_c40bb7f9c0027d 52,62,87,103,114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b4ce521efc10ae2871623abd199e5369c95a0a4d",
+  "prompts": {},
+  "sessions": {
+    "s_51f223526ac7e6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b41cf13-5677-4909-ba4f-9bc620f9958e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
