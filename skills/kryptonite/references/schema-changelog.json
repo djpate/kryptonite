@@ -2,6 +2,273 @@
   "description": "Tracks schema changes per kryptonite version. Used by the validator to understand which fields existed at a given version and by migration logic to upgrade older epics.",
   "versions": [
     {
+      "version": "0.9.0",
+      "date": "2026-05-29",
+      "changes": [
+        {
+          "type": "changed",
+          "target": "references/execution-protocol.md",
+          "field": "Phase A → A1 (parallel patch-gen) + A2 (serial apply)",
+          "description": "Phase A split: A1 generates patches in parallel in throwaway detached checkouts (write-only, no container/DB, identical in both execution modes); A2 applies them serially onto the mount via git am --3way. The two execution modes collapse into one pipeline with apply_target as the only switch. Verification (Phase B, all four gates against the integrated system) is unchanged — the integrated artifact is bit-identical to today's serial commit order. Deletes the old in-Phase-A per-file verify note. Adds a patchgen-* row to Worktree Cleanup Guarantees (G2) and an intra-group read-after-write prohibition (G1). Propagated the model through the story-status definition (merged = patch applied onto apply_target), the Execution-modes section, Phase B steps 1-2 (mode-guarded — no-op merge/remove in single_mounted_serial), and the cleanup table."
+        },
+        {
+          "type": "changed",
+          "target": "references/execution-protocol.md",
+          "field": "Phase B fix loop",
+          "description": "Cheaper fix loop, no gate weakened: orchestrator fixes TRIVIAL issues inline on the mount; service restarts batched once per attempt (health-check before any gate); code_review on subsequent attempts runs against the incremental fix diff only. UAT, UX, and spec_compliance ALWAYS re-run full against the integrated system — never scoped to a story↔file map."
+        },
+        {
+          "type": "changed",
+          "target": "scripts/worktree-manager.js",
+          "field": "createDetachedCheckout + applyPatch",
+          "description": "createDetachedCheckout(repoPath, checkoutPath, ref) adds a branchless worktree for A1. applyPatch(repoPath, patchPath) applies a patch with git am --3way, distinguishes a true merge conflict (unmerged paths) from other am failures, and aborts the in-progress am so the orchestrator can re-dispatch the coder in rebase mode only on real conflicts. Covered by worktree-manager.test.js (node:test, 5 tests)."
+        },
+        {
+          "type": "changed",
+          "target": "agents/coder.md",
+          "field": "patch-based A1 reporting",
+          "description": "Worktree-mode report drops `branch` (checkouts are detached) and adds `patch_path` (git format-patch). The no-verification-claim rule now explicitly covers BOTH execution modes (A1 runs nothing in either). Adds a rebase-mode handling bullet for A2 patch conflicts. The coder report remains prompt-level (no JSON schema enforces it); patch_path is transient (checkout removed after A2) and is NOT persisted on the story object."
+        },
+        {
+          "type": "changed",
+          "target": "agents/orchestrator.md",
+          "field": "A1/A2 loop + slim views + UX parallelism",
+          "description": "Per-wave loop rewritten for A1 parallel patch-gen → A2 serial apply. Each A1 coder gets a slim per-story view (never raw ~700KB state.json; gates still read raw state). Tools list gains createDetachedCheckout + applyPatch. Invariant 5 extended to detached checkouts. Phase B note: UX gate runs per-story compares in parallel."
+        },
+        {
+          "type": "changed",
+          "target": "agents/wave-ux-agent.md",
+          "field": "parallel per-story compares",
+          "description": "The UX gate runs its per-story mock-vs-implementation compares in parallel (one Chrome MCP session per story). Safe because each compare is read-only render+screenshot+diff with no shared-DB-write surface — unlike UAT journey walks (write-dominated), whose parallelization was investigated and rejected for false-pass risk against the shared test DB."
+        },
+        {
+          "type": "changed",
+          "target": "references/plan-assembly.md",
+          "field": "G1 intra-group read-after-write prohibition",
+          "description": "Parallel-group grouping must never co-locate a true source dependency and its dependent in the same non-blocking group — A1 coders generate from the same base_sha and cannot read a sibling's not-yet-generated code. The dependency's owner goes in an earlier blocking group or shared_artifacts[]."
+        }
+      ],
+      "migration": {
+        "from": "0.8.0",
+        "breaking": false,
+        "notes": [
+          "Behavioral/protocol change only — no epic data migration. 0.8.0 epics resume cleanly; the new Phase A pipeline produces the same integrated artifact the gates already expect.",
+          "No schema field is required. patch_path on the coder report is optional and prompt-level (no schema change shipped).",
+          "Two execution speedups were investigated and explicitly REJECTED (not shipped): parallel UAT journey walks (write-dominated journeys → false-pass against the shared test DB) and parallel fix-coders (failures cluster on shared surface; safety required a full re-verify the protocol forbids). See docs/superpowers/plans/2026-05-29-phase12-speed.md 'Explicitly rejected'."
+        ],
+        "steps": [
+          "Bump epic.json.kryptonite_version to '0.9.0' (optional — no gate depends on it).",
+          "No story/plan/spec changes required."
+        ]
+      }
+    },
+    {
+      "version": "0.8.0",
+      "date": "2026-05-29",
+      "changes": [
+        {
+          "type": "added",
+          "target": "plan-schema.json",
+          "field": "waves[].shared_artifacts[]",
+          "description": "Pre-dispatch reconciliation manifest. Each entry pins a model/graphql_type/graphql_enum/factory/base_class/migration that >=2 stories in the wave reference but that doesn't yet exist, so stories don't each invent an incompatible version. Fields: name, kind (enum), owner_story (the single creator, ^US-\\d{3,}[a-z]?$), reused_by[] (consumers), canonical_representation (the agreed shape, e.g. the contested domain-noun resolution), repo. The owner goes in a blocking parallel group so it lands before reusers dispatch. Distinct from shared_registry_files (existing files many stories append to) — shared_artifacts is NEW shared surface created exactly once."
+        },
+        {
+          "type": "added",
+          "target": "repos-schema.json",
+          "field": "repos[].execution_mode",
+          "description": "Enum worktree_parallel (default) | single_mounted_serial. worktree_parallel = one git worktree per story, coders in parallel (existing behavior). single_mounted_serial = work on the main mounted worktree, stories applied sequentially with serial verification — required when the dev env mounts only the main worktree into a container (sibling-worktree code is invisible to docker exec). Wave/story state machine is identical; only physical isolation differs. If a wave spans repos with different modes, orchestrator falls to single_mounted_serial for that wave."
+        },
+        {
+          "type": "added",
+          "target": "repos-schema.json",
+          "field": "repos[].conventions.{schema_introspection_command,compile_gate_command,test_db_setup,test_data_gotchas[],grep_gotchas[]}",
+          "description": "New Phase 7.5 conventions slots for environment-assumption classes that bit Phase-12 execution wave-after-wave. schema_introspection_command: the command that dumps a NON-EMPTY schema (a naive dump can be empty when field visibility is scope-gated). compile_gate_command: dev-server-safe compile/typecheck (a full build can fail against a running dev-server container holding the output volume). test_db_setup: provision the shared test DB once per wave (some repos bootstrap via migrations, not schema:load; their db/schema.rb may be an empty sentinel). test_data_gotchas[]: project-specific factory traps fed to every Coder (test-side analogue of assertion_shapes). grep_gotchas[]: precise anchored patterns where a bare token grep would false-match prose/comments. test_runner.*.invocation guidance extended to recommend the container-qualified form (docker exec <stack>-<svc>-1 ...) since a fresh compose run container can lack private deps. All optional; project-supplied values, never shipped in the skill."
+        },
+        {
+          "type": "changed",
+          "target": "scripts/validate-plan.js",
+          "field": "shared_artifacts consistency + unreconciled_reference warning",
+          "description": "New semantic checks. ERRORS: shared_artifact_owner_missing (owner_story not in any wave), shared_artifact_owner_too_late (owner in a later wave than the declaring wave), shared_artifact_reuser_missing, shared_artifact_reuser_precedes_owner (a reuser cannot be in an earlier wave than its creator). WARNINGS (non-blocking): shared_artifact_owner_not_blocking (owner not in a blocking group), unreconciled_reference (a CamelCase namespaced ref like Foo::Bar appearing across >=2 stories with no shared_artifacts entry — single-story refs are skipped as likely external deps). Output gains a `warnings` array; exit code unchanged (warnings never fail)."
+        },
+        {
+          "type": "changed",
+          "target": "scripts/validate-spec.js",
+          "field": "data_model_ownership_conflict warning",
+          "description": "New semantic check (WARNING). Fires when an entity is described account-less/global/shared/ownerless but carries a required, non-nullable owner reference (account_id/owner_id/etc.) — the latent contradiction (US-039/US-040 'library scenario') that stays hidden from Phase 8 until parallel Phase-12 coders invent incompatible representations. Output gains a `warnings` array; exit code unchanged."
+        },
+        {
+          "type": "added",
+          "target": "phase-gates",
+          "field": "(none — no new gate)",
+          "description": "No hard Phase-11.5 gate was added. Reconciliation is enforced by validate-plan.js consistency checks + the Plan Critic, by design: 'two stories share a concept' is not mechanically detectable from JSON, so a hard gate would pass on a lie — against the skill's discipline that a gate must never fake a pass."
+        },
+        {
+          "type": "changed",
+          "target": "references/execution-protocol.md",
+          "field": "execution modes, blocking-group ordering, test-DB-once, serial verify",
+          "description": "New 'Execution modes' section (worktree_parallel vs single_mounted_serial). Phase A gains step 3.3 (provision shared test DB once before dispatch — never let parallel coders race the migrate), step 3.6 (dispatch blocking groups first and merge them before non-blocking groups), and dual-mode Phase A pseudocode. Phase B fix loop gains an explicit 'verify per-changed-file, serially — never the full wave spec set' rule. Worktree precondition relaxed to apply only to worktree_parallel repos."
+        },
+        {
+          "type": "changed",
+          "target": "agents/coder.md",
+          "field": "worktree-mode pass claims + invented-representation halt + per-file verify",
+          "description": "Worktree-mode reports MUST set tests_run to 'none (worktree mode)' and MUST NOT assert specs pass/rubocop clean — the wave gate is the sole source of truth (isolation hides cross-story bugs). Inventing a persistence/representation/identity shape the spec didn't define is now a mandatory NEEDS_CONTEXT halt (never DONE_WITH_CONCERNS). Fix-on-main verification reinforced to per-changed-file, never the whole suite."
+        },
+        {
+          "type": "changed",
+          "target": "agents/orchestrator.md",
+          "field": "mode selection, blocking-first, test-DB-once, invented-representation escalation",
+          "description": "Per-wave loop documents execution-mode resolution, blocking-group-first dispatch, and provision-test-DB-once. Two new invariants (never dispatch non-blocking before blocking groups merge; never let two coders migrate the shared test DB concurrently) and a worktree-mode-report-can't-claim-pass clause on invariant 8. New escalation row: a Coder 'I invented a representation' NEEDS_CONTEXT halts the wave and is resolved in spec/shared_artifacts before re-dispatch."
+        },
+        {
+          "type": "changed",
+          "target": "agents/plan-critic.md",
+          "field": "shared-concept reconciliation review",
+          "description": "New review dimension (section 8): for each wave, find shared concepts not captured in shared_artifacts[] — a domain noun two stories represent incompatibly, a model/type/enum >=2 stories race to create. Emit unreconciled_shared_concept critical_issues (NEEDS_REVISION). The judgment-call counterpart to validate-plan.js's mechanical checks."
+        },
+        {
+          "type": "changed",
+          "target": "references/{plan-assembly,spec-assembly}.md + SKILL.md + agents/interviewer.md",
+          "field": "reconciliation step, convergence-cost heuristic, environment-assumption principle",
+          "description": "plan-assembly.md: shared_artifacts reconciliation step, owner-in-blocking-group rule, convergence-cost wave-sizing heuristic (prefer a blocking foundation sub-group then fan out leaves; resist max-width fan-out where stories converge on shared surface). spec-assembly.md: documents the data_model_ownership_conflict warning. SKILL.md Phase 7.5 + interviewer.md: the core principle that DOD validation commands encode environment assumptions which must be verified in Phase 7.5, not discovered at gate time."
+        }
+      ],
+      "migration": {
+        "from": "0.7.0",
+        "breaking": false,
+        "notes": [
+          "0.7.0 epics resume cleanly. All new fields (shared_artifacts[], execution_mode, the new conventions slots) are optional — missing values mean previous behavior (worktree_parallel, no pre-wave reconciliation manifest).",
+          "The new validate-plan/validate-spec checks emit WARNINGS, never errors, for the heuristic cases (unreconciled_reference, data_model_ownership_conflict) — they cannot false-fail an older epic. The shared_artifacts consistency ERRORS only fire when a plan actually declares shared_artifacts[].",
+          "No new phase gate. Reconciliation is enforced by the Plan Critic + validate-plan.js, not a hard gate."
+        ],
+        "steps": [
+          "Bump epic.json.kryptonite_version to '0.8.0'.",
+          "If a repo's dev env mounts only the main worktree into a container (so per-story worktrees can't be tested), set repos[].execution_mode = 'single_mounted_serial'.",
+          "During Phase 7.5, fill the new conventions slots where they apply: schema_introspection_command, compile_gate_command, test_db_setup, test_data_gotchas[], grep_gotchas[]. These are project values — not shipped in the skill.",
+          "During Phase 11, populate waves[].shared_artifacts[] for any wave where >=2 stories share a not-yet-existing model/type/enum/base-class, pinning one owner and the canonical_representation. Place owners in blocking parallel groups."
+        ]
+      }
+    },
+    {
+      "version": "0.7.0",
+      "date": "2026-05-28",
+      "changes": [
+        {
+          "type": "changed",
+          "target": "story-schema.json",
+          "field": "required[]",
+          "description": "has_mock added to top-level required[]. Phase 10 already required it — Phase 8 and the global schema treated it as optional with default false, causing 74-of-91 stories to clear Phase 8 and fail Phase 10 in field testing. Authoring (interviewer + designer) now sets it explicitly per story."
+        },
+        {
+          "type": "changed",
+          "target": "scripts/phase-gates/08.json",
+          "field": "stories[].required",
+          "description": "has_mock added to required[] (matches story-schema and Phase 10). The conditional `if has_mock then mock_phase + mock_approved` block kept; only the requiredness was aligned."
+        },
+        {
+          "type": "changed",
+          "target": "spec-schema.json",
+          "field": "parties[].id pattern",
+          "description": "Pattern relaxed from ^[a-z][a-z0-9-]*$ to ^[a-z][a-z0-9_-]*$. Phase 4 captured underscore-style party ids (account_admin, knowbe4_staff) which forced an undocumented remap during spec generation. No remap exists; party id passes through verbatim from epic.json to spec.json to stories[].party."
+        },
+        {
+          "type": "changed",
+          "target": "story-schema.json + plan-schema.json",
+          "field": "chrome_mcp action enum",
+          "description": "Harmonized and widened the chrome_mcp DOD step + plan user_journeys.steps[] action enums. Both now allow: navigate, click, fill, wait, wait_for, assert_text, assert_count, assert_visible, assert_not_visible, assert_url, assert_attribute, screenshot, resize_page, evaluate_script. Step objects also allow optional description/note keys for readability. story-schema.json gains $defs.chromeMcpStep as a single-source-of-truth definition; plan-schema mirrors the shape inline (kept in sync — divergence is the bug). Pre-0.7.0 enums omitted wait_for/resize_page/assert_not_visible/assert_attribute/evaluate_script and forbade description/note, forcing agents to drop legitimate validation steps (e.g. min-viewport gates) or normalize away their own readability keys."
+        },
+        {
+          "type": "added",
+          "target": "story-schema.json",
+          "field": "stories[].touches_registry_files[]",
+          "description": "Optional array of file paths this story modifies that are also modified by other stories in the same wave (registries, aggregator manifests, locale catalogs, GraphQL schema entry points). Listed here — not in the task's regular file_paths — so the parallel-group file-conflict check excludes them; the wave's shared_registry_files entry handles reconciliation at end-of-wave."
+        },
+        {
+          "type": "added",
+          "target": "plan-schema.json",
+          "field": "waves[].shared_registry_files[]",
+          "description": "First-class concept for files multiple stories in a wave must each modify. Each entry: path, repo, kind (append | merge | regenerate), optional merge_strategy and regenerated_by. Excluded from the per-task file_conflict check; reconciled by end_of_wave_actions[]. Without this, every story touching a registry file forced a serial wave."
+        },
+        {
+          "type": "added",
+          "target": "plan-schema.json",
+          "field": "waves[].end_of_wave_actions[]",
+          "description": "Codegen / registry-merge / schema-regeneration actions the orchestrator runs in the wave worktree AFTER all story merges but BEFORE Phase B begins. Each entry: name, command, optional repo, run_in (wave_worktree | main_worktree). Failure → wave.status = blocked, no fix loop (infrastructure-class). Documented in references/execution-protocol.md step 4.5."
+        },
+        {
+          "type": "added",
+          "target": "plan-schema.json + spec-schema.json",
+          "field": "preflight_requirements[]",
+          "description": "Top-level array of human-gated prerequisites that block specific waves (Bedrock model access, LaunchDarkly flag creation, credential provisioning, manual data seeding). Each entry: id (PREFLIGHT-NNN), description, kind, owner, verification (executable check using the DOD validation methods), blocks_waves[]. Phase B step 0 runs verification; failure → wave.status = blocked. Lifted from plan.json into spec.json for visibility."
+        },
+        {
+          "type": "added",
+          "target": "repos-schema.json",
+          "field": "repos[].conventions",
+          "description": "Phase 7.5 verified-repo-facts slot. Structured fields: app_root (container path from Dockerfile WORKDIR / docker-compose working_dir), test_runner.{backend,frontend,e2e} (each with name + invocation + config_path), directory_layout (open-ended map of artifact-type → relative path), assertion_shapes (open-ended per-area assertion shapes), verified_at (ISO timestamp). Populated by reading the repo, not asking the user. Coder agents must consult before writing files or composing test invocations; pre-0.7.0 epics burned hundreds of agent runs on wrong assumptions about app-root, test runner, and namespace layout."
+        },
+        {
+          "type": "added",
+          "target": "repos-schema.json",
+          "field": "repos[].regenerate_commands",
+          "description": "Named map of repo-level regenerate commands (e.g. graphql_schema → 'rake graphql:schema:dump', db_schema → 'rake db:schema:dump'). Referenced by plan.waves[].end_of_wave_actions[] and plan.waves[].shared_registry_files[].regenerated_by so codegen is named once per repo and reused across waves."
+        },
+        {
+          "type": "added",
+          "target": "phase-gates",
+          "field": "scripts/phase-gates/07_5.json + 07_5.0.7.0.json",
+          "description": "Phase 7.5 gate (Repo Conventions Preflight). Base gate requires every epic-referenced repo to be present; 0.7.0+ supplemental requires conventions to be populated (app_root + at least one test_runner surface + non-empty directory_layout + verified_at). Pre-0.7.0 epics skip the supplemental — no retroactive enforcement."
+        },
+        {
+          "type": "changed",
+          "target": "scripts/validate-gate.js",
+          "field": "fractional phase support",
+          "description": "Validator now accepts fractional --phase values (e.g. --phase 7.5 → loads 07_5.json). Filename slug for fractional phases swaps the dot for underscore so files sort lexically beside their integer siblings."
+        },
+        {
+          "type": "changed",
+          "target": "scripts/validate-plan.js",
+          "field": "wave-assignment cross-check",
+          "description": "Optional third positional argument: <path-to-state.json>. When provided, validator asserts that for every story s in plan.waves[N].parallel_groups[*].stories, state.json.stories[s].wave === plan.waves[N].sequence. state.json is the source of truth for story.wave (see references/state-machine.md); the plan describes intent, the state describes execution."
+        },
+        {
+          "type": "changed",
+          "target": "agents/designer.md",
+          "field": "Report Format key rename",
+          "description": "Designer agent emits `design_notes` in its Report Format and state.json story field, matching references/story-schema.json. Pre-0.7.0 it emitted `direction_notes` while the schema accepted only `design_notes`, causing additionalProperties:false rejections."
+        },
+        {
+          "type": "added",
+          "target": "references/",
+          "field": "spec-assembly.md + plan-assembly.md",
+          "description": "New procedural references describing Phase 10 spec assembly (lift order, party-id passthrough, OQ→story mapping, synthesis-section subagent dispatch, Spec Critic loop) and Phase 11 plan assembly (wave-DAG layering via Kahn topological layering, parallel-group grouping with registry-file exclusion, critical-path derivation, conflict-safe file aggregation, Plan Critic loop). Pseudocode-level — there is intentionally no generate-spec.js / generate-plan.js script."
+        },
+        {
+          "type": "changed",
+          "target": "references/spec-versioning.md",
+          "field": "Phase 10 generator inputs framing",
+          "description": "Replaced the absolutist 'mapper, not synthesizer' framing with two explicit categories: Lift sections (1:1 upstream slot in epic.json/state.json — ADRs, parties, NFRs, design system, stories, spike findings, risks, preflight_requirements, scope evolution) and Synthesis sections (architecture.components, architecture.interactions, data_model.entities, api_boundaries — derived from stories + ADRs by parallel subagents). Synthesis sections cannot be lifted; pretending they should be has caused real planning errors."
+        }
+      ],
+      "migration": {
+        "from": "0.6.0",
+        "breaking": false,
+        "notes": [
+          "0.6.0 epics resume cleanly. The new gates and schema additions apply only to epics with epic.kryptonite_version >= 0.7.0 — older epics keep using the base schemas.",
+          "Phase 7.5 is a new phase. 0.6.0 epics skip it. 0.7.0+ epics must populate repos[].conventions before Phase 8 advances.",
+          "shared_registry_files, end_of_wave_actions, preflight_requirements, touches_registry_files, regenerate_commands are all additive — empty/missing values mean 'no special handling', which is the previous behavior."
+        ],
+        "steps": [
+          "Bump epic.json.kryptonite_version to '0.7.0'.",
+          "Run Phase 7.5: for every repo this epic references, populate repos[].conventions by reading the repo (Dockerfile, docker-compose, package.json/Gemfile, directory scan). Confirm with the user.",
+          "If your project has registry/aggregator files multiple stories must each modify, declare them per-story (touches_registry_files[]) and per-wave (shared_registry_files[]) in the plan.",
+          "If your project has codegen files (GraphQL schema, db schema), declare repos[].regenerate_commands and reference them from plan.waves[].end_of_wave_actions[].",
+          "If your project has human-gated prerequisites (Bedrock model access, LaunchDarkly flags), move them from plan.risks[] (where they were a stretch) into plan.preflight_requirements[] with a real verification check.",
+          "If your designer agent emitted direction_notes in pre-0.7.0 state.json, rename to design_notes (it's the same value; only the key changes)."
+        ]
+      }
+    },
+    {
       "version": "0.6.0",
       "date": "2026-05-28",
       "changes": [
