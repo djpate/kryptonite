@@ -56,10 +56,17 @@ export function createDetachedCheckout(repoPath, checkoutPath, ref) {
 export function applyPatch(repoPath, patchPath) {
   const res = tryRun(`git -C "${repoPath}" am --3way "${patchPath}"`);
   if (res.ok) return { ok: true };
-  // Non-clean apply: abort the in-progress am so the working tree is clean
-  // and the orchestrator can re-dispatch the coder in rebase mode.
+  // Distinguish a true merge conflict (unmerged paths) from other am failures
+  // (corrupt/malformed patch, missing blob). Only a real conflict should route
+  // the coder to rebase mode; other failures are reported as plain errors.
+  const status = tryRun(`git -C "${repoPath}" status --porcelain`);
+  const conflict = (status.output || "").split("\n").some(
+    (l) => l.startsWith("UU ") || l.startsWith("AA ") || l.startsWith("U") || l.startsWith("DU ") || l.startsWith("UD ")
+  );
+  // Abort the in-progress am so the working tree is clean either way.
   tryRun(`git -C "${repoPath}" am --abort`);
-  return { ok: false, conflict: true, error: res.error };
+  if (conflict) return { ok: false, conflict: true, error: res.error };
+  return { ok: false, conflict: false, error: res.error };
 }
 
 export function removeWorktree(repoPath, worktreePath, opts = {}) {

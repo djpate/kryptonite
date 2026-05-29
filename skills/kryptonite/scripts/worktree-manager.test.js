@@ -84,3 +84,14 @@ test("applyPatch reports conflict and leaves no in-progress am on overlap", () =
   assert.equal(fs.existsSync(path.join(repo, ".git", "rebase-apply")), false);
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+test("applyPatch reports non-conflict failure for a corrupt patch", () => {
+  const { dir, repo } = tmpRepo();
+  const bad = path.join(dir, "garbage.patch");
+  fs.writeFileSync(bad, "this is not a valid mailbox patch\n");
+  const res = applyPatch(repo, bad);
+  assert.equal(res.ok, false);
+  assert.equal(res.conflict, false);
+  assert.equal(fs.existsSync(path.join(repo, ".git", "rebase-apply")), false);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
