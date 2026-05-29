@@ -236,7 +236,7 @@
         columns: [
           { key: 'pending', label: 'Pending', statuses: ['pending'], color: '#64748b', bgClass: 'col-pending' },
           { key: 'in_progress', label: 'In Progress', statuses: ['in_progress'], color: '#f59e0b', bgClass: 'col-in-progress' },
-          // 'merged' = story branch landed in the wave branch, awaiting wave gates.
+          // 'merged' = story's patch applied onto the apply_target, awaiting wave gates.
           { key: 'merged', label: 'Merged', statuses: ['merged'], color: '#3b82f6', bgClass: 'col-qa' },
           { key: 'done', label: 'Done', statuses: ['done'], color: '#10b981', bgClass: 'col-done' },
           { key: 'blocked', label: 'Blocked', statuses: ['blocked'], color: '#ef4444', bgClass: 'col-blocked' },
