@@ -1,0 +1,36 @@
+skills/kryptonite/agents/wave-uat-agent.md
+  s_51f223526ac7e6::t_3ff24fa79ce73d 13,17
+  s_718d1f74ab9a30::t_59a034d7159dbd 90-98
+  s_51f223526ac7e6::t_791aff8870e2e0 28-42
+skills/kryptonite/agents/wave-ux-agent.md
+  s_718d1f74ab9a30::t_d6c4ca55c85daf 53-61
+skills/kryptonite/agents/wave-code-review-agent.md
+  s_718d1f74ab9a30::t_b2ed21af7f9408 80-87
+skills/kryptonite/agents/wave-spec-compliance-agent.md
+  s_51f223526ac7e6::t_74269a4b4beccf 13,16-17
+  s_718d1f74ab9a30::t_260fdd98241b3d 56-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "7ae10be89eef1eee4fc32bfb780da8e79b13a29f",
+  "prompts": {},
+  "sessions": {
+    "s_51f223526ac7e6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b41cf13-5677-4909-ba4f-9bc620f9958e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    },
+    "s_718d1f74ab9a30": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3595c57b-6010-4791-9fed-475a3c9be136",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
