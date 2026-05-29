@@ -318,6 +318,56 @@
       "then": {
         "required": ["shell_summary"]
       }
+    },
+    "findings": {
+      "type": "array",
+      "description": "Phase 12 execution discoveries. Agent-nominated, orchestrator-curated; escalations auto-capture. The durable home for what waves teach — replaces the ad-hoc state.deferred_findings[]. Resume builds its digest from this array. See references/execution-protocol.md (capture/curation/promotion) and references/storage-protocol.md (resume digest).",
+      "items": {
+        "type": "object",
+        "required": ["id", "category", "audience", "wave_id", "summary", "resolution"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^(WAVE\\d+|EPIC)-FINDING-\\d{3,}$",
+            "description": "Stable id. Wave-scoped: WAVE<N>-FINDING-NNN. Epic-scoped (not tied to one wave): EPIC-FINDING-NNN."
+          },
+          "category": {
+            "type": "string",
+            "enum": ["process", "repo_gotcha", "spec_gap", "regression_risk", "deferred_defect"],
+            "description": "process = fix-loop/infra lesson; repo_gotcha = runtime-discovered repo trap (promotion candidate); spec_gap = spec/plan ambiguity that forced a live decision (incl. NEEDS_CONTEXT); regression_risk = later waves must watch this (pairs with forward_to_waves); deferred_defect = a real defect intentionally deferred."
+          },
+          "audience": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "enum": ["orchestrator", "coder", "gate", "human"] },
+            "description": "Who should read this on resume. The digest filters sections by audience."
+          },
+          "wave_id": { "type": "string", "pattern": "^wave-\\d+$" },
+          "source": { "type": "string", "description": "Provenance, e.g. 'wave-6 code-review (attempt 2)' or 'escalation: attempt-3 pause'." },
+          "story": { "type": "string", "pattern": "^US-\\d{3,}[a-z]?$" },
+          "repo": { "type": "string" },
+          "file": { "type": "string" },
+          "summary": { "type": "string", "minLength": 10 },
+          "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
+          "resolution": {
+            "type": "string",
+            "enum": ["open", "fixed", "deferred", "dismissed", "promoted"],
+            "description": "open = needs a decision/action; fixed = resolved in-epic (set commit); deferred = intentionally left for later; dismissed = reviewed, not a defect; promoted = written into repos.json conventions (set promotion_target)."
+          },
+          "owner_followup": { "type": "string", "description": "Concrete next action if resolution is open/deferred." },
+          "commit": { "type": "string", "description": "Commit SHA when resolution is fixed." },
+          "forward_to_waves": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^wave-\\d+$" },
+            "description": "Regression-risk forwarding: the resume digest surfaces this finding to these waves' coders/gates."
+          },
+          "promotion_target": {
+            "type": "string",
+            "description": "If resolution=promoted: the repos.json conventions path it was written to, e.g. 'kmsat.conventions.test_data_gotchas'."
+          },
+          "created_at": { "type": "string" }
+        }
+      }
     }
   },
   "$defs": {
