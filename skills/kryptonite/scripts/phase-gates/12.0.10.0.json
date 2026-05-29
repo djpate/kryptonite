@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Phase 12 Gate — Findings shape (0.10.0+ supplement)",
+  "description": "Applies only to epics created with kryptonite 0.10.0 or later. If epic.findings[] is present, every entry must be well-formed (valid id pattern, known category/audience/resolution, summary present). Findings are NOT required — a wave may produce none — so this only constrains entries that exist. Reuses the canonical item shape from epic-schema.json.",
+  "type": "object",
+  "properties": {
+    "epic": {
+      "type": "object",
+      "properties": {
+        "findings": {
+          "type": "array",
+          "items": { "$ref": "epic-schema.json#/properties/findings/items" }
+        }
+      }
+    }
+  }
+}
