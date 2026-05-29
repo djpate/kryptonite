@@ -142,6 +142,27 @@ In A1 (parallel patch generation) you work in a **throwaway detached checkout** 
 
 Statuses: `DONE`, `DONE_WITH_CONCERNS`, `NEEDS_CONTEXT`, `BLOCKED`
 
+### Nominating findings (optional)
+
+If, while implementing, you hit something **future waves or a resume should know** — a repo trap
+you had to work around, a place the spec was ambiguous, a risk another story might trip on — append
+a `CANDIDATE_FINDINGS:` block after your status report. The orchestrator parses and curates these
+into `epic.json.findings[]`; nominating does not guarantee persistence. Omit the block if you have
+nothing durable to add — do NOT invent findings to fill it.
+
+```text
+CANDIDATE_FINDINGS:
+- category: repo_gotcha
+  summary: <one or two sentences — the durable fact, not a play-by-play>
+  file: <optional path>
+  suggested_audience: [coder]
+- category: spec_gap
+  summary: <what the spec left undefined and what you assumed>
+```
+
+Categories: `process`, `repo_gotcha`, `spec_gap`, `regression_risk`, `deferred_defect`. This is
+NOT a place for verification claims — worktree mode still verifies nothing (see below).
+
 ### Worktree-mode reports cannot claim verification
 
 In worktree / write-only mode you verify nothing — you wrote code in an isolated checkout that hasn't touched the DB, services, or sibling stories' files. Isolation is exactly what hides cross-story bugs (shared-DB state, shared factories, a model a sibling story hasn't created yet). So a worktree-mode report:
