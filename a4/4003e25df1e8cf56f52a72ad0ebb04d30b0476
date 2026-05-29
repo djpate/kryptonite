@@ -1,0 +1,19 @@
+docs/superpowers/specs/2026-05-29-phase12-speed-design.md
+  s_51f223526ac7e6::t_9bc216d780e682 1-93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "a44003e25df1e8cf56f52a72ad0ebb04d30b0476",
+  "prompts": {},
+  "sessions": {
+    "s_51f223526ac7e6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b41cf13-5677-4909-ba4f-9bc620f9958e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
