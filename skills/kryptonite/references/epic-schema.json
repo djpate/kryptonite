@@ -328,8 +328,8 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^(WAVE\\d+|EPIC)-FINDING-\\d{3,}$",
-            "description": "Stable id. Wave-scoped: WAVE<N>-FINDING-NNN. Epic-scoped (not tied to one wave): EPIC-FINDING-NNN."
+            "pattern": "^WAVE\\d+-FINDING-\\d{3,}$",
+            "description": "Stable id, scoped to the wave that produced the finding: WAVE<N>-FINDING-NNN."
           },
           "category": {
             "type": "string",
