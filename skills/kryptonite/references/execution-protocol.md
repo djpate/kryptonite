@@ -121,7 +121,11 @@ Phase A has two sub-phases. **A1 generates patches in parallel** (no container, 
 7. Loop attempt = 1..max_fix_attempts:
      a. Determine gates to run:
           - First attempt: all four (UAT, UX, spec_compliance, code_review)
-          - Subsequent: only previously-failed gates + any whose validated files were touched by the latest fix
+          - Subsequent: only previously-failed gates + any whose validated files were touched by the latest fix.
+            code_review on a subsequent attempt runs against the INCREMENTAL FIX DIFF only (its artifact under
+            inspection IS the diff, so scoping loses nothing). UAT, UX, and spec_compliance are NEVER scoped down
+            to a story↔file map — they always re-run FULL against the integrated running system, because
+            cross-story regressions live precisely in the journeys such a map would skip.
      b. Dispatch the four gate agents in parallel
      c. Collect reports, write to wave-N/gates/<gate>-<attempt>.json
      d. **If any gate.status == "blocked"** (infrastructure unavailable):
@@ -141,15 +145,21 @@ Phase A has two sub-phases. **A1 generates patches in parallel** (no container, 
         Collect open issues with severity in (critical, high) across failed gates (deduped per gate's dedup_key)
         For each open issue:
           - strategy = retry_strategy(len(issue.fix_attempts))
-          - if strategy == "pause_for_user":
+          - if the issue is TRIVIAL (single-file, mechanical, no logic change — e.g. a missing import,
+            a typo'd selector, a lint nit):
+              orchestrator fixes it inline on the mount (no fresh-coder dispatch round-trip).
+              Anything ambiguous or touching logic is NOT trivial — fall through to dispatch.
+          - elif strategy == "pause_for_user":
               surface to user, wait for response: fix manually | defer | replan | abort
           - else:
               dispatch fix per strategy
               merge fix → main worktree's branch
               after the fix, verify the changed code by running ONLY the spec file(s)
                 for the changed code, SERIALLY — never the wave's full spec set
-              if changed_files affects services:
-                  restart affected services
+        After ALL of this attempt's fixes have merged:
+          - If any merged fix changed service files: restart affected services ONCE (batched — not per-issue),
+            and WAIT for ready_signal/health_check to pass BEFORE dispatching any gate.
+            (If a later fix in the same attempt touches service files after the restart, restart again.)
 
 8. If wave.status != "complete" after max attempts:
      surface to user for decision
@@ -174,7 +184,7 @@ The orchestrator reads `repos.json[].testing` to know how to start/stop services
 | When | Action |
 |------|--------|
 | Phase B start | `start_command` for each affected repo, wait for ready |
-| Between fix attempts | If fix changed code files: stop+start affected service |
+| Between fix attempts | If any of the attempt's fixes changed service files: stop+start affected service ONCE (batched), health-check before any gate dispatches |
 | Phase B complete | `stop_command` for each (skip if not provided) |
 | User aborts | `stop_command` for all running services |
 
