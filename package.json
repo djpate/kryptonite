@@ -1,6 +1,6 @@
 {
   "name": "kryptonite",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Spec-driven development for Claude Code — structured user stories, automated DOD validation, multi-agent parallel execution",
   "type": "module",
   "author": "djpate",

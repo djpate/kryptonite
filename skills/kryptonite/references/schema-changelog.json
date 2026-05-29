@@ -2,6 +2,74 @@
   "description": "Tracks schema changes per kryptonite version. Used by the validator to understand which fields existed at a given version and by migration logic to upgrade older epics.",
   "versions": [
     {
+      "version": "0.10.0",
+      "date": "2026-05-29",
+      "changes": [
+        {
+          "type": "added",
+          "target": "epic-schema.json",
+          "field": "findings[]",
+          "description": "Durable Phase-12 execution discoveries. Each entry: id (^WAVE\\d+-FINDING-\\d{3,}$), category (process|repo_gotcha|spec_gap|regression_risk|deferred_defect), audience[] (orchestrator|coder|gate|human), wave_id, summary, resolution (open|fixed|deferred|dismissed|promoted), plus optional source/story/repo/file/severity/owner_followup/commit/forward_to_waves[]/promotion_target/created_at. Formalizes the ad-hoc state.json.deferred_findings[] the orchestrator had been inventing with no schema. Agent-nominated + orchestrator-curated; escalations auto-capture. Resume builds its digest from this array."
+        },
+        {
+          "type": "added",
+          "target": "wave-gate-report-schema.json",
+          "field": "candidate_findings[]",
+          "description": "Optional per-gate-report nomination channel. Each entry: category + summary (required) plus optional severity/story/file/suggested_audience/owner_followup. Advisory — the orchestrator curates which become epic.json.findings[]. Coders (no JSON report) nominate via a CANDIDATE_FINDINGS: text block instead. The report's top-level additionalProperties:false required adding this as an explicit property."
+        },
+        {
+          "type": "added",
+          "target": "phase-gates",
+          "field": "scripts/phase-gates/12.0.10.0.json",
+          "description": "Phase-12 supplemental gate: when epic.findings[] is present, each entry must be well-formed (reuses epic-schema.json#/properties/findings/items via $ref). Findings are NOT required — a wave may produce none — so the gate only constrains entries that exist. Applies to epics created on 0.10.0+; older epics are unaffected."
+        },
+        {
+          "type": "changed",
+          "target": "references/execution-protocol.md",
+          "field": "Findings section",
+          "description": "New section after Issue Tracking: capture (agents nominate via candidate_findings[] / coders via CANDIDATE_FINDINGS:; escalations auto-capture before every pause), curation (collect -> dedup -> drop noise -> id -> forward_to_waves -> safe-write at wave-complete), and two-tier promotion of durable repo_gotcha findings into repos.json conventions (user-confirmed, never silent)."
+        },
+        {
+          "type": "changed",
+          "target": "references/storage-protocol.md",
+          "field": "Phase-12 resume routine + epic.json findings slot",
+          "description": "Resume Detection gains a Phase-12 routine: self-heal (reconcileState — materialize ONLY the next wave if plan has it but state lacks it; backfill gate_runs from on-disk report files, idempotent) then print a resume digest (decisions-needed / forwarded-to-this-wave / repo-conventions-in-play / next-action) read entirely from disk. epic.json contents list gains findings[]."
+        },
+        {
+          "type": "changed",
+          "target": "agents/orchestrator.md",
+          "field": "capture/curation/promotion + resume hooks",
+          "description": "Per-wave loop gains a curate-findings step at wave-complete (alongside recording gate_runs). Escalation table gains an auto-capture rule (write a finding before every user pause). Required-reading gains the Phase-12 resume routine."
+        },
+        {
+          "type": "changed",
+          "target": "agents/{wave-uat,wave-ux,wave-spec-compliance,wave-code-review}-agent.md + agents/coder.md",
+          "field": "candidate_findings nomination",
+          "description": "Four gate agents document the optional candidate_findings[] nomination in their Output section; the coder documents an optional CANDIDATE_FINDINGS: text block. All advisory; the orchestrator curates."
+        },
+        {
+          "type": "changed",
+          "target": "references/state-machine.md + SKILL.md",
+          "field": "findings location guidance",
+          "description": "state-machine.md notes findings live in epic.json, not state.json. SKILL.md Discipline table gains a row pointing the 'stash what this wave taught me' urge at epic.json.findings[]."
+        }
+      ],
+      "migration": {
+        "from": "0.9.0",
+        "breaking": false,
+        "notes": [
+          "0.9.0 epics resume cleanly. findings[] is optional (absent = no findings, prior behavior). The 12.0.10.0 supplemental gate only constrains findings entries that exist, and only for epics stamped 0.10.0+.",
+          "candidate_findings[] on gate reports is optional and additive — gates that don't emit it are unaffected.",
+          "Existing state.json.deferred_findings[] in in-flight epics is not auto-migrated by the validator. Move those entries to epic.json.findings[] when convenient (see the readiness-v2 migration shipped with this version as the worked example), then delete state.deferred_findings[]."
+        ],
+        "steps": [
+          "Bump epic.json.kryptonite_version to '0.10.0' to opt into the findings-shape gate.",
+          "If the epic has an ad-hoc state.json.deferred_findings[], move each entry to epic.json.findings[] (map id/source/severity/story/file/summary/resolution/owner_followup/commit 1:1; add category/audience/wave_id), then remove state.deferred_findings[].",
+          "Promote durable repo facts (factory traps, grep traps) into repos.json[].conventions.test_data_gotchas[]/grep_gotchas[] and mark the source findings resolution:'promoted' with promotion_target."
+        ]
+      }
+    },
+    {
       "version": "0.9.0",
       "date": "2026-05-29",
       "changes": [
