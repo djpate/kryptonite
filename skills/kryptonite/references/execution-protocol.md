@@ -245,6 +245,68 @@ Issues stored in `state.json.waves[N].gate_runs[]`. Each gate_run is immutable h
 
 Issue IDs are stable within a wave. Re-runs append `fix_attempts[]`. Issues never re-use IDs.
 
+## Findings (durable execution discoveries)
+
+Issues drive the fix loop and are wave-local. **Findings** are the durable lessons a wave teaches —
+they outlive the wave and live in `epic.json.findings[]` (schema in `references/epic-schema.json`).
+This is the schema slot that replaces the ad-hoc `state.deferred_findings[]`; never write findings
+to `state.json` or to a sidecar file.
+
+Five categories: `process` (fix-loop/infra lesson, "what done-right looks like here"),
+`repo_gotcha` (a runtime-discovered repo trap — a promotion candidate), `spec_gap` (the spec/plan
+was ambiguous and forced a live decision, including any NEEDS_CONTEXT halt), `regression_risk`
+(later waves must watch this — pair with `forward_to_waves[]`), and `deferred_defect` (a real
+defect intentionally left for later). Default audiences: process → [orchestrator, human];
+repo_gotcha → [coder]; spec_gap → [orchestrator, human]; regression_risk → [coder, gate];
+deferred_defect → [orchestrator, human]. The curator may override.
+
+### Capture — three paths, one writer
+
+The orchestrator is the **sole writer** of `epic.json.findings[]`. Subagents never write it.
+
+1. **Agents nominate.** Every gate report may carry an optional `candidate_findings[]` array
+   (schema in `references/wave-gate-report-schema.json`). Coders nominate via a `CANDIDATE_FINDINGS:`
+   block in their text report (they have no JSON schema). These are advisory.
+2. **Escalations auto-capture.** Before pausing the user for any escalation (attempt-3
+   `pause_for_user`, a `blocked` gate, a Coder `NEEDS_CONTEXT` halt, or an end-of-wave-action
+   failure), the orchestrator writes a finding first — `category: process` (or `spec_gap` for
+   NEEDS_CONTEXT), `audience: [orchestrator, human]`, `resolution: open`, `source: "escalation: <which>"`.
+   This is a deterministic trigger so the highest-value lessons can't be lost.
+3. **User flags inline.** "Record this as a finding" → the orchestrator writes it.
+
+### Curation — at each wave-complete and each escalation
+
+1. Collect `candidate_findings[]` from the four gate reports + coder `CANDIDATE_FINDINGS:` blocks.
+2. **Dedup** against existing `findings[]` by (file, summary) similarity — the same instinct that
+   dedups issues by `dedup_key`. If a candidate restates an existing finding on a sibling file,
+   record one finding noting both files, not two.
+3. **Drop noise.** A candidate already covered by an existing finding, an ADR
+   (`epic.json.decisions[]`), or a repo convention (`repos.json[].conventions`) is NOT recorded
+   again. Recurring restatements are a signal to consolidate, not to append — the store must stay
+   small enough that the resume digest is useful.
+4. Assign `id` (`WAVE<N>-FINDING-NNN`, scoped to the producing wave), set `audience` from the
+   category default (override if warranted), set `resolution`.
+5. For `regression_risk` findings, set `forward_to_waves[]` to the wave(s) that touch the flagged
+   files (read `plan.json` wave assignments). The resume digest surfaces these to the named waves.
+6. Write `epic.json` using the safe-write protocol in `references/storage-protocol.md`
+   (`.bak` → `.tmp` → atomic rename).
+
+### Promotion — durable repo facts flow to repos.json (two-tier)
+
+A `repo_gotcha` finding that is a *durable fact about the repo* (not specific to this epic) should
+be **promoted** into the shared `repos.json[<repo>].conventions`:
+
+- Factory/test-data traps → `conventions.test_data_gotchas[]`.
+- Grep false-match traps → `conventions.grep_gotchas[]`.
+
+On promotion: append the summary to the convention array, set the finding's `resolution: "promoted"`
+and `promotion_target` (e.g. `"kmsat.conventions.test_data_gotchas"`). Future epics on that repo
+then inherit the fact, and Phase-7.5 no longer needs to rediscover it.
+
+**Promotion is proposed, never silent.** `repos.json` is shared across every future epic, so
+polluting it is costly. Surface the candidate to the user ("this looks like a durable repo fact —
+promote it to repos.json conventions?") and write only on confirmation.
+
 ## Pass criteria
 
 A wave is `complete` when:
