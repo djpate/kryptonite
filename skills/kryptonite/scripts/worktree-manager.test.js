@@ -20,6 +20,24 @@ function tmpRepo() {
   return { dir, repo, g };
 }
 
+function cleanup(dir) {
+  // Detached worktrees register metadata under repo/.git/worktrees/; git's
+  // lingering filesystem activity on .git can race a recursive delete and
+  // repopulate a dir between the contents pass and the final rmdir, throwing
+  // ENOTEMPTY. rmSync's maxRetries only retries the failing rmdir (not a fresh
+  // re-walk that would clear newly-added children), so wrap it in an outer
+  // retry loop that re-walks from the top until the tree is gone.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      fs.rmSync(dir, { recursive: true, force: true, maxRetries: 50, retryDelay: 100 });
+      return;
+    } catch (e) {
+      if (attempt >= 10 || (e.code !== "ENOTEMPTY" && e.code !== "EBUSY")) throw e;
+      execSync("sleep 0.1");
+    }
+  }
+}
+
 test("createDetachedCheckout creates a worktree at a ref with no branch", () => {
   const { dir, repo } = tmpRepo();
   const head = execSync("git rev-parse HEAD", { cwd: repo, encoding: "utf-8" }).trim();
@@ -31,7 +49,7 @@ test("createDetachedCheckout creates a worktree at a ref with no branch", () => 
   assert.equal(coHead, head);
   const branch = execSync("git symbolic-ref -q HEAD || true", { cwd: coPath, encoding: "utf-8" }).trim();
   assert.equal(branch, "");
-  fs.rmSync(dir, { recursive: true, force: true });
+  cleanup(dir);
 });
 
 test("createDetachedCheckout fails if path already exists", () => {
@@ -41,7 +59,7 @@ test("createDetachedCheckout fails if path already exists", () => {
   fs.mkdirSync(coPath);
   const res = createDetachedCheckout(repo, coPath, head);
   assert.equal(res.ok, false);
-  fs.rmSync(dir, { recursive: true, force: true });
+  cleanup(dir);
 });
 
 function makePatch(repo, dir, name, mutate) {
@@ -66,7 +84,7 @@ test("applyPatch applies a clean patch onto the mount", () => {
   const res = applyPatch(repo, p);
   assert.equal(res.ok, true);
   assert.equal(fs.existsSync(path.join(repo, "b.txt")), true);
-  fs.rmSync(dir, { recursive: true, force: true });
+  cleanup(dir);
 });
 
 test("applyPatch reports conflict and leaves no in-progress am on overlap", () => {
@@ -82,7 +100,7 @@ test("applyPatch reports conflict and leaves no in-progress am on overlap", () =
   assert.equal(res.ok, false);
   assert.equal(res.conflict, true);
   assert.equal(fs.existsSync(path.join(repo, ".git", "rebase-apply")), false);
-  fs.rmSync(dir, { recursive: true, force: true });
+  cleanup(dir);
 });
 
 test("applyPatch reports non-conflict failure for a corrupt patch", () => {
@@ -93,5 +111,5 @@ test("applyPatch reports non-conflict failure for a corrupt patch", () => {
   assert.equal(res.ok, false);
   assert.equal(res.conflict, false);
   assert.equal(fs.existsSync(path.join(repo, ".git", "rebase-apply")), false);
-  fs.rmSync(dir, { recursive: true, force: true });
+  cleanup(dir);
 });
