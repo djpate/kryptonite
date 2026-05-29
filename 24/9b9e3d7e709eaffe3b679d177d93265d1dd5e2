@@ -1,0 +1,25 @@
+skills/kryptonite/references/execution-protocol.md
+  s_51f223526ac7e6::t_ff484f804ab88f 34-42,54-57,59
+  s_51f223526ac7e6::t_e3af7e48e1ca7f 102
+  s_51f223526ac7e6::t_dd80f6c9baa782 149-150,158
+  s_51f223526ac7e6::t_a206f3d8a38191 43-45,48-53,58,60-83,85,96,99-101
+  s_51f223526ac7e6::t_be9792844894bd 10
+  s_51f223526ac7e6::t_2e8099405d517a 84,86-95
+  s_51f223526ac7e6::t_f28b237daba762 106-113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "249b9e3d7e709eaffe3b679d177d93265d1dd5e2",
+  "prompts": {},
+  "sessions": {
+    "s_51f223526ac7e6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b41cf13-5677-4909-ba4f-9bc620f9958e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
