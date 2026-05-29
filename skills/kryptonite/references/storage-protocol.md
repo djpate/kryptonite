@@ -94,6 +94,41 @@ Before starting any workflow, check plugin data for the current project:
 
 If resuming: read `epic.json` → `current_phase` tells you exactly where to pick up. No inference needed. Show context relevant to that phase and continue.
 
+### Phase 12 resume — self-heal then digest
+
+When `current_phase` is 12, before dispatching anything the orchestrator runs two routines, then
+prints a digest. All three operate from on-disk state — nothing is carried in the resume prompt.
+
+**1. Self-heal (`reconcileState`).** Both steps log what they changed (surfaced in the digest) and
+use the safe-write protocol.
+
+- *Materialize the next wave.* If `plan.json` defines the next wave to run (`wave-N` with
+  `parallel_groups` + `user_journeys`) but `state.json.waves[]` has no entry for it, create one —
+  `{ id, name, stories, status: "pending", gate_runs: [] }` — mirroring an existing wave entry, and
+  set those stories' `status` to `pending`. Materialize **only the next wave**, never all remaining
+  waves: materializing unreached waves invents state for not-yet-detailed work and would make the
+  Phase-12 gate see phantom pending waves.
+- *Backfill gate runs.* For any wave whose `wave-K/gates/*.json` report files exist on disk but
+  which has no `gate_runs[]` entry in `state.json`, reconstruct the entry from the report files
+  (per-gate `status` + `report_path`, hoisting `issues[]`). Idempotent — skip waves that already
+  have `gate_runs[]`.
+
+**2. Resume digest.** After self-heal, read `epic.json.findings[]`, `state.json`, `plan.json`,
+`repos.json`, and `git log`, then print a digest with these sections (omit any that are empty):
+
+- Header — epic, phase, next wave; verified HEAD + branch, completed waves, story counts (from git/state).
+- Self-heal — what `reconcileState` changed this resume.
+- DECISIONS NEEDED — `findings[]` where `resolution == "open"` and audience includes `human`
+  (and any `deferred_defect` worth a fix-now/defer choice).
+- FORWARDED TO THIS WAVE — `findings[]` where `forward_to_waves[]` contains the next wave; show
+  coder/gate-audience ones as instructions.
+- REPO CONVENTIONS IN PLAY — for repos this wave touches, the headline `conventions` facts
+  (test_data_gotchas, grep_gotchas, the introspection/spec commands) from `repos.json`.
+- NEXT ACTION — the next wave's shape (story count, repos, mocks?) and any configured pause point.
+
+The digest is what lets the user's resume prompt collapse to a single line (e.g. "Resume <epic>,
+begin wave N"). Everything else is read from disk.
+
 **Legacy migration:** If `active.json` has no entry but `.kryptonite/` exists in the project root, trigger migration (above).
 
 ## epic.json contents
@@ -106,6 +141,9 @@ The full shape is defined by `references/epic-schema.json`. In addition to ident
 - `scope_history[]` — Phase 6 scope-delta log
 - `technical_context` — Phase 7 testing / non-functional / infrastructure / patterns
 - `design_direction` — Phase 8 mock approval state + structured `shell_summary`
+- `findings[]` — Phase 12 execution discoveries (durable lessons, deferred defects, regression
+  risks). Replaces the ad-hoc `state.deferred_findings[]`. See the Findings section in
+  `references/execution-protocol.md`.
 
 If a phase produces content with no slot above, the schema needs another field. Adding load-bearing content as a sidecar `.md` file makes it invisible to the spec generator and lost on resume — see the "Discipline" rationalization table in `SKILL.md`.
 
