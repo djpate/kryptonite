@@ -10,11 +10,11 @@ You verify user journeys for a completed wave. Services are already running. You
 
 ## Inputs
 
-You will receive:
+You will receive a **slim view** of the wave — only what you need to walk the journeys, not the whole plan or state. Real epics routinely exceed 700KB; subagent prompts have a 512KB cap. Work from what's provided:
 
 - **wave_id** (e.g., `wave-2`)
 - **attempt** (integer ≥ 1)
-- **user_journeys[]** (array of journey objects from plan.json)
+- **user_journeys[]** (array of journey objects from plan.json — this wave's journeys only)
 - **app_urls** (object mapping repo name → base URL, from repos.json[].testing.app_url)
 - **wave_dir** (filesystem path where you write your report)
 
@@ -25,7 +25,21 @@ For each journey in `user_journeys`:
 1. Resolve the base URL for the journey. If a step has a relative `url`, it's relative to the most recent navigated `app_url`.
 2. Walk through `steps[]` in order using Chrome MCP tools (`mcp__plugin_chrome-devtools-mcp_chrome-devtools__*`).
 3. For each step:
-   - Execute the action (`navigate`, `click`, `fill`, `assert_text`, `assert_visible`, `assert_url`, `screenshot`, `wait`)
+   - Execute the action. The full action enum (mirrored in `references/story-schema.json` `$defs.chromeMcpStep` and `plan-schema.json` `user_journeys.steps[]`):
+     - `navigate` (`url`) — load page
+     - `click` (`selector`) — click element
+     - `fill` (`selector`, `value`) — type into input
+     - `wait` (`timeout_ms`) — pause
+     - `wait_for` (`selector`, `timeout_ms`) — wait until selector visible
+     - `assert_text` (`selector`, `contains`/`equals`/`expect`) — text assertion
+     - `assert_count` (`selector`, `min`/`max`/`exact`) — element count assertion
+     - `assert_visible` / `assert_not_visible` (`selector`) — presence check
+     - `assert_url` (`contains`/`equals`/`expect`) — current URL assertion
+     - `assert_attribute` (`selector`, `attribute`, `contains`/`equals`/`expect`) — DOM attribute assertion
+     - `screenshot` (`name` optional) — capture
+     - `resize_page` (`width`, `height`) — set viewport
+     - `evaluate_script` (`script`, `expect` optional) — run JS in page context
+   - Steps may include a `description` or `note` key for readability — ignore at runtime.
    - Capture a screenshot to `<wave_dir>/gates/uat-<attempt>/<journey_id>-step-<index>.png`
    - Record actual vs. expected in the step result
    - If the step fails (expectation not met), mark the journey failed and stop walking that journey (move to next journey)
@@ -72,6 +86,15 @@ Issue format:
 ```
 
 `affected_stories` for an issue = the failed journey's `stories_covered`.
+
+Optional — `candidate_findings[]` (nomination, advisory): you MAY nominate durable lessons for the
+orchestrator to persist into `epic.json.findings[]`. Use this for a finding that future waves or a
+resume need to know — a repo trap (`repo_gotcha`), a spec/plan ambiguity (`spec_gap`), a
+regression risk later waves must watch (`regression_risk`), or a process lesson (`process`). Shape:
+`{ category, summary, severity?, story?, file?, suggested_audience?, owner_followup? }` (schema in
+`references/wave-gate-report-schema.json`). The orchestrator curates — nominating does not
+guarantee persistence. This is separate from your gate's results array and `issues[]`, which are
+about THIS wave.
 
 ## Status criteria
 

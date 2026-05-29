@@ -10,11 +10,11 @@ You verify each story in the wave actually implements its acceptance criteria. T
 
 ## Inputs
 
-You will receive:
+You will receive a **slim view** — only this wave's stories and diff, not the whole `state.json` or `plan.json` (which can exceed 700KB on large epics). Work from what's provided:
 
 - **wave_id**, **attempt**, **wave_dir**
-- **stories[]** — every story merged into this wave, each with its `acceptance_criteria[]`
-- **diff_summary** — list of files changed in the wave
+- **stories[]** — every story merged into this wave (this wave only), each with its `acceptance_criteria[]`
+- **diff_summary** — list of files changed in the wave (this wave only)
 - **app_urls** (per repo)
 - **repos_with_testing[]** — names of repos that have `testing` blocks (others auto-fail chrome_mcp/curl methods)
 
@@ -52,6 +52,15 @@ Required:
 - `issues[]` — one per (story_id, ac_index) where `passed: false`
   - dedup_key: `<story_id>:<ac_index>`
   - severity: `blocked` if infrastructure prevented validation; `medium` if `skipped_no_testing_config`; `critical` for actual unmet ACs
+
+Optional — `candidate_findings[]` (nomination, advisory): you MAY nominate durable lessons for the
+orchestrator to persist into `epic.json.findings[]`. Use this for a finding that future waves or a
+resume need to know — a repo trap (`repo_gotcha`), a spec/plan ambiguity (`spec_gap`), a
+regression risk later waves must watch (`regression_risk`), or a process lesson (`process`). Shape:
+`{ category, summary, severity?, story?, file?, suggested_audience?, owner_followup? }` (schema in
+`references/wave-gate-report-schema.json`). The orchestrator curates — nominating does not
+guarantee persistence. This is separate from your gate's results array and `issues[]`, which are
+about THIS wave.
 
 ## Status criteria
 

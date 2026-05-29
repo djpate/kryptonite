@@ -77,6 +77,14 @@ Issue format:
 
 `affected_stories` derived from which story modified the file/line (use git blame on diff if needed).
 
+Optional — `candidate_findings[]` (nomination, advisory): you MAY nominate durable lessons for the
+orchestrator to persist into `epic.json.findings[]`. Use this for a finding that future waves or a
+resume need to know — a repo trap (`repo_gotcha`), a spec/plan ambiguity (`spec_gap`), a
+regression risk later waves must watch (`regression_risk`), or a process lesson (`process`). Shape:
+`{ category, summary, severity?, story?, file?, suggested_audience?, owner_followup? }` (schema in
+`references/wave-gate-report-schema.json`). The orchestrator curates — nominating does not
+guarantee persistence. This is separate from `findings[]`/`issues[]`, which are about THIS review.
+
 ## Pass criterion
 
 `status: "pass"` only if no `critical` and no `high` issues. Medium and low findings are reported in `findings[]` but don't fail the gate.

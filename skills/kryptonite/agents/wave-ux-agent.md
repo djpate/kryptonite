@@ -50,6 +50,15 @@ Required:
 - `issues[]` — one per `(story_id, drift_category)` where status is `broken` (severity: critical) or `drift` for critical color/layout (severity: critical) — minor drift produces no issue. If gate is `blocked`, exactly one issue with `severity: "blocked"`.
 - `dedup_key`: `<story_id>:<drift_category>` (or `infrastructure:chrome_mcp_unavailable` for blocked)
 
+Optional — `candidate_findings[]` (nomination, advisory): you MAY nominate durable lessons for the
+orchestrator to persist into `epic.json.findings[]`. Use this for a finding that future waves or a
+resume need to know — a repo trap (`repo_gotcha`), a spec/plan ambiguity (`spec_gap`), a
+regression risk later waves must watch (`regression_risk`), or a process lesson (`process`). Shape:
+`{ category, summary, severity?, story?, file?, suggested_audience?, owner_followup? }` (schema in
+`references/wave-gate-report-schema.json`). The orchestrator curates — nominating does not
+guarantee persistence. This is separate from your gate's results array and `issues[]`, which are
+about THIS wave.
+
 ## When Chrome MCP is unavailable — DO NOT fake it
 
 UX comparison only works when both the approved mock and the implementation can be rendered to actual screenshots. If Chrome MCP is unreachable, the browser is locked, navigation times out, or any other infrastructure problem prevents real rendering, you MUST:
