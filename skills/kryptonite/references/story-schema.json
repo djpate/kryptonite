@@ -13,7 +13,8 @@
     "priority",
     "dependencies",
     "estimated_complexity",
-    "repo"
+    "repo",
+    "has_mock"
   ],
   "properties": {
     "id": {
@@ -91,30 +92,12 @@
                 "oneOf": [
                   {
                     "type": "string",
-                    "description": "The exact command or URL to run for verification. Use ${APP_URL} as base URL placeholder. e.g. 'curl -s -o /dev/null -w %{http_code} ${APP_URL}/api/users' or 'npm test -- --grep US-001'"
+                    "description": "The exact shell command or URL string. Used when method is 'curl' (full curl invocation, ${APP_URL} as base allowed), 'test_suite' (test runner invocation, e.g. 'npm test -- --grep US-001'), or 'file_exists' (path relative to the repo). NOT used for chrome_mcp."
                   },
                   {
                     "type": "array",
-                    "description": "Structured steps for chrome_mcp validation. Each step is an action object.",
-                    "items": {
-                      "type": "object",
-                      "required": ["action"],
-                      "properties": {
-                        "action": {
-                          "type": "string",
-                          "enum": ["navigate", "click", "fill", "assert_text", "assert_count", "assert_visible", "assert_url", "screenshot"]
-                        },
-                        "url": { "type": "string" },
-                        "selector": { "type": "string" },
-                        "value": { "type": "string" },
-                        "contains": { "type": "string" },
-                        "equals": { "type": "string" },
-                        "min": { "type": "integer" },
-                        "max": { "type": "integer" },
-                        "exact": { "type": "integer" },
-                        "name": { "type": "string" }
-                      }
-                    }
+                    "description": "Structured steps for chrome_mcp validation. Each step is an action object. See the action enum and per-action keys below.",
+                    "items": { "$ref": "#/$defs/chromeMcpStep" }
                   }
                 ]
               },
@@ -150,8 +133,7 @@
     },
     "has_mock": {
       "type": "boolean",
-      "default": false,
-      "description": "Whether this story has a UI component that needs a visual mockup. Set to true during Phase 5 for stories with user-facing UI. Mock files are stored in the epic's mocks/ directory."
+      "description": "Whether this story has a UI component that needs a visual mockup. Set explicitly during Phase 8 (true for visual stories, false otherwise) — required across all phase gates so Phase 8 and Phase 10 agree. When true, mock_phase and mock_approved must also be set."
     },
     "mock_phase": {
       "type": "string",
@@ -179,6 +161,11 @@
     "design_notes": {
       "type": "string",
       "description": "Free-form notes captured during mock approval describing the chosen layout/treatment for this story's content area. Inherited by Designer agents and the spec generator."
+    },
+    "touches_registry_files": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Files this story must modify that are also modified by other stories in the same wave (registries, aggregator manifests, locale catalogs, GraphQL schema entry points). Listed here — not in the task's regular file_paths — so the parallel-group file-conflict check excludes them; the wave's shared_registry_files entry handles reconciliation at end-of-wave. See references/plan-assembly.md."
     },
     "amended": {
       "type": "boolean",
@@ -237,7 +224,7 @@
     },
     "merged_at": {
       "type": "string",
-      "description": "ISO timestamp of when the story was merged into the wave branch."
+      "description": "ISO timestamp of when the story's patch was applied onto the apply_target (git am --3way)."
     },
     "completed_at": {
       "type": "string",
@@ -249,5 +236,52 @@
       "description": "Number of QA/Review cycles for this story. Escalate to user after 3."
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$defs": {
+    "chromeMcpStep": {
+      "type": "object",
+      "required": ["action"],
+      "additionalProperties": false,
+      "description": "One step in a chrome_mcp DOD or user_journey walk. Same shape used by plan-schema.json user_journeys.steps[]. Keep these in sync.",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "navigate",
+            "click",
+            "fill",
+            "wait",
+            "wait_for",
+            "assert_text",
+            "assert_count",
+            "assert_visible",
+            "assert_not_visible",
+            "assert_url",
+            "assert_attribute",
+            "screenshot",
+            "resize_page",
+            "evaluate_script"
+          ],
+          "description": "navigate: load url. click: click selector. fill: type value into selector. wait: pause for timeout_ms. wait_for: wait until selector is visible (timeout_ms optional). assert_text: selector contains/equals expected. assert_count: selector matches min/max/exact. assert_visible / assert_not_visible: presence check on selector. assert_url: current URL contains/equals expected. assert_attribute: selector's `attribute` contains/equals expected. screenshot: capture (name optional). resize_page: set viewport via width/height. evaluate_script: run `script` in page context, optionally assert via expect."
+        },
+        "url": { "type": "string", "description": "Used by navigate; absolute or relative." },
+        "selector": { "type": "string", "description": "CSS selector. Required by click, fill, wait_for, assert_text, assert_count, assert_visible, assert_not_visible, assert_attribute." },
+        "value": { "type": "string", "description": "Used by fill; the text to type." },
+        "contains": { "type": "string", "description": "Used by assert_text, assert_url, assert_attribute." },
+        "equals": { "type": "string", "description": "Used by assert_text, assert_url, assert_attribute." },
+        "expect": { "type": "string", "description": "Generic expected-value placeholder (used by evaluate_script and as a fallback for asserts)." },
+        "attribute": { "type": "string", "description": "Used by assert_attribute; the DOM attribute name (e.g. 'aria-disabled')." },
+        "min": { "type": "integer", "description": "Used by assert_count." },
+        "max": { "type": "integer", "description": "Used by assert_count." },
+        "exact": { "type": "integer", "description": "Used by assert_count." },
+        "width": { "type": "integer", "minimum": 1, "description": "Used by resize_page." },
+        "height": { "type": "integer", "minimum": 1, "description": "Used by resize_page." },
+        "script": { "type": "string", "description": "Used by evaluate_script; JavaScript executed in the page context." },
+        "timeout_ms": { "type": "integer", "minimum": 0, "description": "Used by wait and wait_for." },
+        "name": { "type": "string", "description": "Used by screenshot; output file name suffix." },
+        "description": { "type": "string", "description": "Optional human-readable note for this step. Ignored by the runner; useful for review." },
+        "note": { "type": "string", "description": "Alias for description. Either may be used." }
+      }
+    }
+  }
 }

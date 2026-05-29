@@ -39,10 +39,10 @@ pending → in_progress (Phase A coding) → gates_running (Phase B gates) → c
 
 Every story conforms to `references/story-schema.json` plus these execution-time fields:
 
-- `wave` / `parallel_group` — wave assignment from Phase 11
+- `wave` / `parallel_group` — wave assignment from Phase 11. **`state.json` is the source of truth for `story.wave`** — `plan.json` describes intent (where the planner placed the story), `state.json` describes execution. The two must agree at plan-approval time; `scripts/validate-plan.js` enforces this when invoked with the optional `state.json` argument. If they drift mid-execution (e.g. amendment moved a story to a later wave), update `state.json` and regenerate the plan.
 - `status` — see story states above
 - `commit_sha` — from Coder's report
-- `merged_at` — ISO timestamp when the story branch landed in the wave branch
+- `merged_at` — ISO timestamp when the story's patch was applied onto the apply_target (git am --3way; the wave-N worktree in worktree_parallel, or the main branch in single_mounted_serial)
 - `implemented_by` — agent model used
 - `started_at` / `completed_at` — timestamps
 - `amended` / `amendment_history` — tracks mid-execution changes

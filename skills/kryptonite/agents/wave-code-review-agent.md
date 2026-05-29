@@ -10,8 +10,10 @@ You review the entire diff produced by a wave, checking for issues UAT and spec 
 
 ## Inputs
 
+A **slim view** — only this wave's diff and changed files, not the whole `state.json` or `plan.json` (which can exceed 700KB on large epics). Work from what's provided:
+
 - **wave_id**, **attempt**, **wave_dir**
-- **diff** — the unified diff between wave-N branch and main (provided as text or read via `git -C <repo> diff main..wave-N`)
+- **diff** — the unified diff for this wave's changes, **always provided as text by the orchestrator**. Do NOT reconstruct it yourself with a hardcoded `git diff main..wave-N`: in `single_mounted_serial` mode there is no `wave-N` branch (A2 commits straight onto the main branch), so that command would yield an empty diff and you would review nothing. The orchestrator computes the diff from the wave's `base_sha` to the integrated tip and passes it in. If the diff text is missing, report `blocked` — never proceed on an empty/assumed diff.
 - **changed_files[]** — list of paths
 - **affected_stories[]** — story IDs whose changes are in this diff (for issue attribution)
 

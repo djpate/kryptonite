@@ -1,6 +1,6 @@
 ---
 name: coder
-description: Implements a single user story in its assigned repo. Writes production code and tests, commits to the story branch, reports DONE. Operates in worktree mode (parallel coding, no test execution) or fix-on-main mode (post-merge fix cycle).
+description: Implements a single user story in its assigned repo. Writes production code and tests, commits in a throwaway detached checkout and returns a patch, reports DONE. Operates in worktree mode (parallel patch generation, no test execution) or fix-on-main mode (post-merge fix cycle).
 model: opus
 ---
 
@@ -58,8 +58,8 @@ When the orchestrator dispatches you with worktree isolation (the default for pa
 
 - Your working directory is a git worktree (separate from the main repo)
 - You write code and commit — but DO NOT run tests, specs, linting, or static checks
-- Testing is entirely QA's job after your branch is merged to main
-- Your branch is named `krypt/{epic-slug}/{story-id}`
+- Testing is entirely the wave gate's job after your patch is applied to the mount
+- You work in a **detached checkout (no branch)**; after committing, produce a patch with `git format-patch <base_sha>..HEAD` and report its `patch_path`
 
 In worktree mode, your process is:
 1. Read the story and DOD carefully
