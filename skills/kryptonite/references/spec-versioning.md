@@ -4,23 +4,40 @@ This document defines how the spec is versioned, how user comments are persisted
 
 ## Phase 10 generator inputs
 
-The spec generator is a **mapper, not a synthesizer**. Its job is to lift structured content from `epic.json` and `state.json` into `spec.json`, not to re-derive decisions from chat history. If a section of the spec has no upstream source in those files, the schema is missing a slot — open `references/epic-schema.json` and add the field, don't paper over it in the generator.
+The spec is built from two kinds of sources: **lift sections** (verbatim copy from upstream slots) and **synthesis sections** (derived from stories + ADRs by an LLM pass). Don't conflate them — the rules differ.
 
-The lift table:
+### Lift sections (mapper)
+
+These have a 1:1 upstream slot in `epic.json` or `state.json`. Lifting is mechanical.
 
 | `spec.json` section                  | Source                                   |
 |--------------------------------------|------------------------------------------|
 | `architecture.decisions[]` (ADRs)    | `epic.json.decisions[]` (drop the extension fields `source_phase`, `related_stories` when shaping for `spec-schema.json`) |
 | `open_questions[]`                   | `epic.json.open_questions[]` (drop `source_phase`) |
-| `parties[]`                          | `epic.json.parties[]`                    |
+| `parties[]`                          | `epic.json.parties[]` (id passed through verbatim — see party-id note below) |
 | `nfrs` and related sections          | `epic.json.technical_context.non_functional` |
 | `technical_constraints` / patterns   | `epic.json.technical_context.patterns`   |
 | `design_direction`                   | `epic.json.design_direction` (the structured `shell_summary` populates `color_system`, `typography`, etc. — see `references/spec-schema.json`) |
+| `risks[]`                            | `epic.json.risks[]` if present, otherwise empty |
+| `preflight_requirements[]`           | `plan.json.preflight_requirements[]` (lifted into the spec for visibility) |
 | Scope evolution narrative            | `epic.json.scope_history[]`              |
 | `stories[]`                          | `state.json.stories[]`                   |
 | `spike_findings[]`                   | `state.json.stories[]` (where `type === "spike"`) + `data/.../spikes/<id>-*.md` |
 
-If the generator finds it has to invent ADRs or NFRs because the upstream slots are empty, that's a Phase 3/7 gate failure that slipped through — bail out and tell the user instead of fabricating.
+If a lift section's upstream slot is empty, that's a Phase 3/7/8 gate failure that slipped through — bail out and tell the user, don't fabricate. **Party ids:** `^[a-z][a-z0-9_-]*$` is permitted; whatever shape Phase 4 captured (e.g. `account_admin` or `account-admin`) is reused verbatim in `stories[].party`. There is no underscore→hyphen remap.
+
+### Synthesis sections (derived)
+
+These are not stored anywhere upstream — they are derived from stories + ADRs + technical_context by an LLM synthesis pass before the spec is rendered. Each is its own subagent dispatch (parallel where independent).
+
+| `spec.json` section                  | Synthesis inputs                         |
+|--------------------------------------|------------------------------------------|
+| `architecture.components[]`          | `state.json.stories[]`, `epic.json.decisions[]`, `repos.json[].conventions`, `epic.json.technical_context.infrastructure` |
+| `architecture.interactions[]`        | the resolved `architecture.components[]` + `state.json.stories[]` (must dispatch after components) |
+| `data_model.entities[]`              | `state.json.stories[]` (data nouns), `epic.json.decisions[]` (storage choices) |
+| `api_boundaries[]`                   | `state.json.stories[]` (endpoints implied by AC + DOD), `repos.json[].conventions.directory_layout` |
+
+If a synthesis section comes back empty, the LLM pass failed — re-run, do not paper over. If a synthesis section *cannot* be derived from stories+ADRs (the inputs are themselves missing), the upstream slot is missing — bail out and tell the user, just like a lift section.
 
 ## Version Lifecycle
 

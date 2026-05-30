@@ -274,6 +274,116 @@
               }
             }
           },
+          "shared_artifacts": {
+            "type": "array",
+            "description": "Pre-dispatch reconciliation manifest. Each entry pins a model / type / enum / base-class / factory that two or more stories in this wave reference but that does NOT yet exist — so the stories don't each invent a different (incompatible) version of it. The owner_story creates it; everyone in reused_by must reuse, never re-create. The orchestrator dispatches the owner first (place it in a `blocking: true` parallel group — see references/execution-protocol.md 'blocking groups'), then fans out the reusers against the now-stable artifact. Distinct from shared_registry_files (existing files many stories append to): shared_artifacts is about NEW shared surface area that must be created exactly once. See references/plan-assembly.md.",
+            "items": {
+              "type": "object",
+              "required": ["name", "kind", "owner_story", "reused_by", "repo"],
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Canonical identifier of the artifact, e.g. 'Readiness::ScenarioHistoryEntry', 'Types::Readiness::EditPlan', 'factory :readiness_scenario'."
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": ["model", "graphql_type", "graphql_enum", "factory", "base_class", "migration", "other"],
+                  "description": "What sort of shared surface this is. Drives the phantom-reference check in validate-plan.js."
+                },
+                "owner_story": {
+                  "type": "string",
+                  "pattern": "^US-\\d{3,}[a-z]?$",
+                  "description": "The single story that CREATES this artifact. Must be in this wave or an earlier one. Should live in a blocking parallel group so it lands before its reusers dispatch."
+                },
+                "reused_by": {
+                  "type": "array",
+                  "items": { "type": "string", "pattern": "^US-\\d{3,}[a-z]?$" },
+                  "description": "Stories that consume the artifact. They must reuse it verbatim — never re-create. None may be in an earlier wave than owner_story (a reuser can't precede its creator)."
+                },
+                "canonical_representation": {
+                  "type": "string",
+                  "description": "The agreed shape, resolved BEFORE dispatch, that all consumers must honor. This is where a contested domain-noun representation is pinned, e.g. 'library scenario: account-less, identified by a draft_graph JSON flag, NO account_id column'. Lifted into every Coder dispatch for the owner and reusers."
+                },
+                "repo": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Name of the repo this artifact lives in (must match a `name` in repos.json)."
+                }
+              }
+            }
+          },
+          "end_of_wave_actions": {
+            "type": "array",
+            "description": "Actions the orchestrator runs in the wave worktree after all stories merge but BEFORE the wave merges into main and BEFORE Phase B gates run. Used for codegen (regenerate GraphQL schema, db schema dump, manifest aggregation). Failures of these actions block the wave (status: blocked, no fix loop) — see references/execution-protocol.md.",
+            "items": {
+              "type": "object",
+              "required": ["name", "command"],
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Short identifier used in commit messages (`End-of-wave: <name>`) and orchestrator logs."
+                },
+                "command": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Shell command to run. Often a one-liner referencing repos.json[].regenerate_commands."
+                },
+                "repo": {
+                  "type": "string",
+                  "description": "Optional — if set, command runs from the repo's path within the wave worktree. If omitted, runs from the wave worktree root."
+                },
+                "run_in": {
+                  "type": "string",
+                  "enum": ["wave_worktree", "main_worktree"],
+                  "default": "wave_worktree",
+                  "description": "Where to run the command. Default `wave_worktree` keeps end-of-wave changes in the wave branch before it merges into main."
+                }
+              }
+            }
+          },
+          "shared_registry_files": {
+            "type": "array",
+            "description": "Files multiple stories in this wave must each modify (registries / aggregators / index files / locale catalogs / route maps / GraphQL schema entry points). Excluded from the per-task `file_paths` conflict check — instead reconciled by `end_of_wave_actions[]` (kind: merge or regenerate). Without this concept, every story touching such a file would force a serial wave.",
+            "items": {
+              "type": "object",
+              "required": ["path", "repo", "kind"],
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Repo-relative path to the shared file, e.g. 'app/graphql/schema/query.rb' or 'src/i18n/locales/en.ts'."
+                },
+                "repo": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Name of the repo this file lives in (must match a `name` in repos.json)."
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": ["append", "merge", "regenerate"],
+                  "description": "append: each story appends a clean section that the orchestrator concatenates. merge: a script reconciles separate fragments (declared in merge_strategy or regenerated_by). regenerate: derived from sources — the regenerated_by command rebuilds the file at end-of-wave."
+                },
+                "merge_strategy": {
+                  "type": "string",
+                  "description": "Free-form instruction or script ref the orchestrator uses to reconcile this file when kind is `merge`. e.g. 'concatenate fragments alphabetically by feature name'."
+                },
+                "regenerated_by": {
+                  "type": "string",
+                  "description": "Shell command that regenerates this file from sources, run in the wave worktree at end-of-wave when kind is `regenerate` or `merge`. Often a one-liner referencing repos.json[].regenerate_commands."
+                },
+                "stories": {
+                  "type": "array",
+                  "items": { "type": "string", "pattern": "^US-\\d{3,}[a-z]?$" },
+                  "description": "Stories in this wave that touch this file (informational; populated by the planner from each story's touches_registry_files)."
+                }
+              }
+            }
+          },
           "post_wave_validation": {
             "type": "array",
             "description": "Automated checks to run after the wave completes to confirm correctness",
@@ -318,6 +428,7 @@
                 "steps": {
                   "type": "array",
                   "minItems": 1,
+                  "description": "Walk steps for the journey. Step shape MUST be kept in sync with story-schema.json $defs.chromeMcpStep — both schemas describe the same chrome_mcp walk.",
                   "items": {
                     "type": "object",
                     "required": ["action"],
@@ -325,13 +436,40 @@
                     "properties": {
                       "action": {
                         "type": "string",
-                        "enum": ["navigate", "click", "fill", "assert_text", "assert_visible", "assert_url", "screenshot", "wait"]
+                        "enum": [
+                          "navigate",
+                          "click",
+                          "fill",
+                          "wait",
+                          "wait_for",
+                          "assert_text",
+                          "assert_count",
+                          "assert_visible",
+                          "assert_not_visible",
+                          "assert_url",
+                          "assert_attribute",
+                          "screenshot",
+                          "resize_page",
+                          "evaluate_script"
+                        ]
                       },
                       "url": { "type": "string" },
                       "selector": { "type": "string" },
                       "value": { "type": "string" },
+                      "contains": { "type": "string" },
+                      "equals": { "type": "string" },
                       "expect": { "type": "string" },
-                      "timeout_ms": { "type": "integer", "minimum": 0 }
+                      "attribute": { "type": "string" },
+                      "min": { "type": "integer" },
+                      "max": { "type": "integer" },
+                      "exact": { "type": "integer" },
+                      "width": { "type": "integer", "minimum": 1 },
+                      "height": { "type": "integer", "minimum": 1 },
+                      "script": { "type": "string" },
+                      "timeout_ms": { "type": "integer", "minimum": 0 },
+                      "name": { "type": "string" },
+                      "description": { "type": "string" },
+                      "note": { "type": "string" }
                     }
                   }
                 }
@@ -415,6 +553,75 @@
           "type": "string",
           "enum": ["per_parallel_group", "per_story"],
           "description": "How git worktrees are allocated. per_parallel_group = one worktree per group; per_story = one worktree per story."
+        }
+      }
+    },
+    "preflight_requirements": {
+      "type": "array",
+      "description": "Human-gated work that must be completed before specific waves can run. Examples: enabling AWS Bedrock model access, creating LaunchDarkly feature flags, provisioning a database, granting production credentials, populating seed data. Distinct from `risks` (which are probabilistic) — these are deterministic blockers. The orchestrator runs each requirement's `verification` as a Phase B precondition for any wave it blocks; a failing verification produces a wave status of `blocked` (infrastructure-class, not fix-loop).",
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "kind", "owner", "verification", "blocks_waves"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^PREFLIGHT-\\d{3}$",
+            "description": "Unique identifier, e.g. PREFLIGHT-001."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 10,
+            "description": "What the human needs to do, in actionable terms."
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["external_service", "feature_flag", "credential", "model_access", "manual_data", "infrastructure", "approval"],
+            "description": "Category of the human-gated work."
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Who is responsible for completing this requirement (role or team name)."
+          },
+          "verification": {
+            "type": "object",
+            "required": ["method"],
+            "additionalProperties": false,
+            "description": "Executable check the orchestrator runs to confirm the requirement is met. Mirrors the DOD validation methods so the same machinery applies.",
+            "properties": {
+              "method": {
+                "type": "string",
+                "enum": ["curl", "chrome_mcp", "test_suite", "file_exists"],
+                "description": "How to verify."
+              },
+              "command": {
+                "oneOf": [
+                  { "type": "string" },
+                  { "type": "array", "items": { "type": "object" } }
+                ],
+                "description": "String for curl/test_suite/file_exists; array of chrome_mcp steps for chrome_mcp method (same shape as DOD validation in story-schema.json)."
+              },
+              "expect": {
+                "type": "string",
+                "description": "Expected result (HTTP code, output match, etc.)."
+              }
+            }
+          },
+          "blocks_waves": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^wave-\\d+$" },
+            "description": "Wave IDs that cannot start until this requirement is verified. Use the wave's `id` from `plan.waves[]`."
+          },
+          "documentation_url": {
+            "type": "string",
+            "description": "Optional link to runbook, internal docs, or vendor portal explaining how to fulfill this requirement."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Free-form notes — for example, lead time required, dependencies on other teams, or known gotchas."
+          }
         }
       }
     },

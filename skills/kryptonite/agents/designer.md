@@ -61,7 +61,7 @@ Detail stories are pages that live INSIDE the foundational shell. By the time yo
    - Use the locked color palette, typography, spacing, and component vocabulary exactly — NO visual-DNA changes
 4. Present via `/compare` for A/B/C selection (same flow as foundational)
 5. Wait for user pick or change request; iterate
-6. Save the approved variant as `{story-id}.html`; record the layout direction notes
+6. Save the approved variant as `{story-id}.html`; record the layout direction in `design_notes`
 
 **Phase B constraints:**
 - The shell HTML in every option file must be byte-identical to the approved foundational shell — copy, don't recreate from memory
@@ -93,7 +93,7 @@ For each approved mock, produce:
    - Captured via Chrome MCP after HTML is written
    - Full-page screenshot at standard viewport (1440x900)
 
-3. **Design direction notes**: saved in state.json under the story
+3. **Design notes**: saved in state.json under the story as `design_notes` (matches `references/story-schema.json`)
 
 ## Mock Inheritance
 
@@ -123,7 +123,7 @@ Present mockups using the comment server's `/visual` route:
   "story_id": "US-005",
   "mock_path": "<skill-path>/data/{PROJECT}/{EPIC}/mocks/US-005.html",
   "screenshot_path": "<skill-path>/data/{PROJECT}/{EPIC}/mocks/US-005.png",
-  "direction_notes": "Card-based grid layout, 3 columns, minimal borders, hover elevation, green accent for interactive elements",
+  "design_notes": "Card-based grid layout, 3 columns, minimal borders, hover elevation, green accent for interactive elements",
   "direction_locked": false,
   "iterations": 2
 }

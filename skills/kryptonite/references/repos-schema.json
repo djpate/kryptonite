@@ -21,6 +21,99 @@
           "run": { "type": "string" },
           "test": { "type": "string" },
           "testing_notes": { "type": "string" },
+          "execution_mode": {
+            "type": "string",
+            "enum": ["worktree_parallel", "single_mounted_serial"],
+            "default": "worktree_parallel",
+            "description": "How Phase 12 isolates story work for this repo. `worktree_parallel` (default): one git worktree per story at ../wave-N-US-XXX, coders run in parallel. `single_mounted_serial`: work on the main worktree, stories applied sequentially with serial verification — required when the dev env mounts ONLY the main worktree into a container (every DOD runs `docker exec` against that one mount, so code in a sibling worktree is invisible and can't be tested). If a wave spans repos with different modes, the orchestrator falls to single_mounted_serial for that wave (the safe subset). See references/execution-protocol.md 'Execution modes'."
+          },
+          "conventions": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Verified, greppable repo facts captured during Phase 7.5 by reading the repo (not by asking the user). Agents reference this rather than guessing — wrong assumptions about app-root, test runner, or directory layout were the single largest source of rework in pre-0.7.0 epics. Populate from Dockerfile/docker-compose, package.json/Gemfile, and a directory scan; ask the user only to confirm.",
+            "properties": {
+              "app_root": {
+                "type": "string",
+                "description": "Container or runtime path to the app (e.g. '/kmsat', '/app', '/srv/api'). Read from Dockerfile WORKDIR or docker-compose service config."
+              },
+              "test_runner": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Detected test runner per surface — what the QA gate and DOD `test_suite` validations should invoke.",
+                "properties": {
+                  "backend": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": { "type": "string", "description": "e.g. 'rspec', 'jest', 'pytest', 'go test'" },
+                      "invocation": { "type": "string", "description": "Exact command the gate runs. Container-qualify it when the suite runs inside a container — a fresh `compose run` container can lack private deps, so prefer `docker exec <stack>-<svc>-1 bash -lc 'cd <app_root> && bundle exec rspec ...'` over a bare `bundle exec rspec`." },
+                      "config_path": { "type": "string", "description": "Repo-relative path to the runner config, e.g. '.rspec', 'jest.config.js'" }
+                    }
+                  },
+                  "frontend": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": { "type": "string" },
+                      "invocation": { "type": "string" },
+                      "config_path": { "type": "string" }
+                    }
+                  },
+                  "e2e": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": { "type": "string", "description": "e.g. 'playwright', 'cypress'" },
+                      "invocation": { "type": "string" },
+                      "config_path": { "type": "string" }
+                    }
+                  }
+                }
+              },
+              "directory_layout": {
+                "type": "object",
+                "additionalProperties": { "type": "string", "minLength": 1 },
+                "description": "Repo-relative directories agents reach for when generating files. Keys are domain names (e.g. 'graphql_resolvers', 'graphql_mutations', 'models', 'workers', 'frontend_components', 'i18n_locales'); values are paths verified to exist (e.g. 'app/graphql/resolvers/'). Add keys as the project requires — schema is open-ended."
+              },
+              "assertion_shapes": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Verified payload/assertion shapes for area-specific patterns the project uses (e.g. graphql_auth_failure_resolver, graphql_auth_failure_mutation, http_error_envelope). Free-form by area; describes the exact shape DOD steps should assert against."
+              },
+              "schema_introspection_command": {
+                "type": "string",
+                "description": "The real command that dumps a NON-EMPTY schema artifact. Some stacks gate field visibility by scope/warden, so a naive dump (e.g. `rake graphql:write_schema_files`) produces an empty file — record the scoped command that actually emits content (e.g. dumping with a scope context). DOD checks that grep a generated schema must use this command."
+              },
+              "compile_gate_command": {
+                "type": "string",
+                "description": "The dev-server-safe compile/typecheck command. A running dev-server container can hold a build-output volume, so a full production build (e.g. `pnpm build`) may fail with a busy/locked dir (EBUSY on the output path). Record the safe equivalent (e.g. a prepare/typecheck step) here so compile-gate DODs don't kill the dev server."
+              },
+              "test_db_setup": {
+                "type": "string",
+                "description": "Command that provisions/migrates the shared test DB. The orchestrator runs this ONCE per wave before dispatching coders (see references/execution-protocol.md), never letting parallel coders race the migrate. Some repos bootstrap the test DB via migrations on a prebuilt structure rather than `schema:load` (their committed db/schema.rb may be an empty sentinel) — record the command that actually yields a populated DB."
+              },
+              "test_data_gotchas": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 },
+                "description": "Short project-specific factory/test-data traps, fed into every Coder dispatch so N parallel coders don't each rediscover or misdiagnose the same one. The test-side analogue of assertion_shapes. Example shape: 'create(:owner) twice collapses into ONE account (account looked up by email domain) — use distinct domains for cross-account specs'."
+              },
+              "grep_gotchas": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 },
+                "description": "Notes where a 'grep for token X' DOD check would false-match prose/comments. Record the precise pattern to use instead (e.g. an anchored macro usage `^\\s*skip_policy!` rather than the bare token, which also matches `# ...no skip_policy! per ADR-026`)."
+              },
+              "verified_at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "ISO timestamp of the most recent Phase 7.5 verification. If repo files have changed substantially since this date, re-run Phase 7.5."
+              }
+            }
+          },
+          "regenerate_commands": {
+            "type": "object",
+            "additionalProperties": { "type": "string", "minLength": 1 },
+            "description": "Named commands that regenerate derived files in this repo (e.g. `graphql_schema`: 'rake graphql:schema:dump', `db_schema`: 'rake db:schema:dump'). Used by `plan.waves[].end_of_wave_actions[]` and `plan.waves[].shared_registry_files[].regenerated_by` so wave-level codegen is named once per repo and referenced from many waves."
+          },
           "testing": {
             "type": "object",
             "required": ["start_command", "app_url"],

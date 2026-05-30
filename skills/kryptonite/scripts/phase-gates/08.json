@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Phase 8 Gate — DOD & Mocks Complete",
-  "description": "Every story has DOD, priority, dependencies, complexity, repo. All mock stories approved. Design direction locked.",
+  "description": "Every story has DOD, priority, dependencies, complexity, repo, has_mock. All mock stories approved. Design direction locked.",
   "type": "object",
   "required": ["epic", "state", "repos"],
   "properties": {
@@ -23,7 +23,7 @@
           "minItems": 1,
           "items": {
             "type": "object",
-            "required": ["id", "type", "party", "statement", "acceptance_criteria", "definition_of_done", "priority", "dependencies", "estimated_complexity", "repo"],
+            "required": ["id", "type", "party", "statement", "acceptance_criteria", "definition_of_done", "priority", "dependencies", "estimated_complexity", "repo", "has_mock"],
             "properties": {
               "id": { "type": "string", "pattern": "^US-\\d{3,}[a-z]?$" },
               "type": { "type": "string", "enum": ["feature", "spike"] },
@@ -61,11 +61,11 @@
                 "type": "array",
                 "items": { "type": "string", "pattern": "^US-\\d{3,}[a-z]?$" }
               },
-              "estimated_complexity": { "type": "string", "enum": ["trivial", "simple", "moderate", "complex", "very_complex"] }
+              "estimated_complexity": { "type": "string", "enum": ["trivial", "simple", "moderate", "complex", "very_complex"] },
+              "has_mock": { "type": "boolean" }
             },
             "if": {
-              "properties": { "has_mock": { "const": true } },
-              "required": ["has_mock"]
+              "properties": { "has_mock": { "const": true } }
             },
             "then": {
               "required": ["mock_phase", "mock_approved"],

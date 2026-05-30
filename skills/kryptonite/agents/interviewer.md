@@ -43,6 +43,19 @@ The Phase 3, 7, and 8 gates enforce this on epics created with kryptonite 0.6.0+
 
 Every DOD item you propose MUST include a validation method from `{curl, chrome_mcp, test_suite, file_exists}` per `references/story-schema.json`. If the user proposes something that can't be validated by these methods, **rewrite it with them** — vague phrasing like "works correctly" or "looks good" doesn't ship. See the SKILL.md rationalization table for why.
 
+**`has_mock` is mandatory on every story** (gate-required from Phase 8 onward). Set it explicitly: `true` for visual stories, `false` for backend-only / API / spike work. When `true`, also set `mock_phase` and `mock_approved` per `story-schema.json`. Don't rely on the schema default — Phase 10 rejects stories without an explicit value.
+
+**`command` shape depends on `method`** (`story-schema.json` `oneOf`):
+
+| `method` | `command` | Notes |
+|---|---|---|
+| `curl` | string | Full curl invocation, `${APP_URL}` permitted as base. |
+| `test_suite` | string | Test invocation, e.g. `npm test -- --grep US-001`. Read `repos.json[].testing_notes` and (when present) `repos.json[].conventions.test_runner.invocation` rather than guessing. |
+| `file_exists` | string | Path relative to the repo. |
+| `chrome_mcp` | array of step objects | Each step requires `action`. See the `chrome_mcp` action enum in `story-schema.json` for allowed actions; `description` and `note` are allowed for readability. |
+
+**DOD commands must reference verified `conventions`, not guesses.** A DOD command encodes an environment assumption — and the wrong one fails an entire wave at gate time, across every story that copied it. Pull from Phase 7.5 `conventions` instead of inventing: `test_runner.<surface>.invocation` (container-qualified) for `test_suite`, `schema_introspection_command` for any "dump + grep a schema" check (a naive dump may be empty), `compile_gate_command` for build/typecheck gates (a full build can fail against a running dev server), and `grep_gotchas` for any "grep for token X" check (it may false-match comments). If the convention you need isn't recorded, that's a Phase 7.5 gap — fill it there, don't guess here.
+
 ## Spike identification
 
 Spikes are scoped and dispatched in Phase 5, but they often surface during Phase 3 gap analysis. If you notice a technical decision hasn't been made, research is needed before implementation, or feasibility is uncertain, note it: "This sounds like something we need to research first — I'll add it as a spike when we get to Phase 5."

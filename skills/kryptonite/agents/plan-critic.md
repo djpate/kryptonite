@@ -126,6 +126,18 @@ For each parallel group within a wave, extract all file paths from every task st
 - Are there DOD items that need multiple services running simultaneously?
 - Flag any DOD that looks like it'll timeout or require manual setup
 
+### 8. Shared-Concept Reconciliation (cross-story ambiguity within a wave)
+
+This is the highest-leverage check for parallel execution. The `file_conflict` rules above catch two stories writing the *same path*. They do NOT catch two stories that share a **concept** — and that is where parallel dispatch bleeds the most time. For each wave, look for:
+
+- **A domain noun two stories represent incompatibly.** e.g. one story models "library scenario" as account-less with a JSON flag; another pins it to an account via a `NOT NULL` column. Both are "locally correct"; together they're broken (mutations write rows the queries can't find). This is the worst case and the hardest to see.
+- **A model / type / enum / base-class / factory ≥2 stories need but none yet creates.** They'll race to create it and produce divergent copies (or one clobbers the other) even when file paths don't literally collide.
+- **A GraphQL type or enum two stories nearly define.**
+
+The plan should resolve each of these **before dispatch** by recording them in the wave's `shared_artifacts[]`: one `owner_story` creates it (placed in a `blocking: true` group), everyone else `reused_by` reuses it, and `canonical_representation` pins the agreed shape. `validate-plan.js` mechanically flags references no story creates (`unreconciled_reference` warning) and checks the manifest's internal consistency — but it cannot judge whether two representations are *semantically* incompatible. That judgment is yours.
+
+For every shared concept you find that is NOT captured in `shared_artifacts[]`, emit a `critical_issue` of type `unreconciled_shared_concept` with the proposed owner and canonical representation. This is `NEEDS_REVISION` — resolving it post-dispatch (after parallel coders have each invented a version) is the single most expensive failure mode in execution.
+
 ## Report Format
 
 ```json

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Phase 7.5 Gate — Repo Conventions Preflight (0.7.0+ supplement)",
+  "description": "Applies only to epics created with kryptonite 0.7.0 or later. Every repo must have a populated `conventions` block (app_root, at least one test_runner surface, non-empty directory_layout, verified_at). Without this, agents author against unverified repo facts.",
+  "type": "object",
+  "properties": {
+    "repos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["conventions"],
+        "properties": {
+          "conventions": {
+            "type": "object",
+            "required": ["app_root", "test_runner", "directory_layout", "verified_at"],
+            "properties": {
+              "app_root": { "type": "string", "minLength": 1 },
+              "test_runner": {
+                "type": "object",
+                "minProperties": 1,
+                "properties": {
+                  "backend": {
+                    "type": "object",
+                    "required": ["name", "invocation"],
+                    "properties": {
+                      "name": { "type": "string", "minLength": 1 },
+                      "invocation": { "type": "string", "minLength": 1 }
+                    }
+                  },
+                  "frontend": {
+                    "type": "object",
+                    "required": ["name", "invocation"],
+                    "properties": {
+                      "name": { "type": "string", "minLength": 1 },
+                      "invocation": { "type": "string", "minLength": 1 }
+                    }
+                  },
+                  "e2e": {
+                    "type": "object",
+                    "required": ["name", "invocation"],
+                    "properties": {
+                      "name": { "type": "string", "minLength": 1 },
+                      "invocation": { "type": "string", "minLength": 1 }
+                    }
+                  }
+                }
+              },
+              "directory_layout": {
+                "type": "object",
+                "minProperties": 1
+              },
+              "verified_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

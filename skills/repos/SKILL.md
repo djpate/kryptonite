@@ -60,6 +60,13 @@ When the user wants to add a repo, gather these fields:
 5. **run** — how to start the dev server. Auto-detect from package.json/Procfile/Makefile if possible.
 6. **test** — how to run tests. Auto-detect if possible.
 7. **testing_notes** — free-form testing context. Ask: "Any testing notes? (credentials, URLs, how to seed data, API keys, anything agents need to know when testing against this repo)"
+8. **conventions** — verified repo facts (Phase 7.5 in the kryptonite workflow). Auto-detect by reading the repo:
+   - **app_root** — `WORKDIR` from `Dockerfile` or service `working_dir` in `docker-compose.yml`. Fallback: `"."`.
+   - **test_runner** — for each surface that exists (backend, frontend, e2e), record `name`, exact `invocation`, and `config_path`. Detect from `Gemfile` (rspec/minitest), `package.json` `scripts.test` (jest/vitest/playwright), `pytest.ini`/`pyproject.toml`, `go.mod`, etc.
+   - **directory_layout** — directory scan for artifact types the project actually uses (resolvers, mutations, models, workers, components, locales, …). Only record keys whose paths exist.
+   - **assertion_shapes** — optional, but valuable for projects with consistent error/response patterns. Capture by reading existing examples; record the verified shape.
+
+   Show detected values, ask user to confirm or correct. Set `verified_at` to the current ISO timestamp on save.
 
 After gathering all fields, write to `<skill-path-kryptonite>/data/{PROJECT}/repos.json` (create the project data directory if it doesn't exist).
 
@@ -69,14 +76,16 @@ When a path is provided, scan it to auto-fill fields:
 
 | File Found | Infer |
 |-----------|-------|
-| `package.json` | Read `scripts.dev` or `scripts.start` for `run`. Read `scripts.test` for `test`. Check dependencies for framework (next, react, vue, svelte, express). |
-| `Gemfile` | Ruby project. Check for `rails` → "Rails + Ruby". `run`: `bin/rails server`. `test`: `bundle exec rspec` or `bin/rails test`. |
+| `package.json` | Read `scripts.dev` or `scripts.start` for `run`. Read `scripts.test` for `test`. Check dependencies for framework (next, react, vue, svelte, express). For `conventions.test_runner`: dependency presence determines runner (jest/vitest/playwright/cypress). |
+| `Gemfile` | Ruby project. Check for `rails` → "Rails + Ruby". `run`: `bin/rails server`. `test`: `bundle exec rspec` or `bin/rails test`. For `conventions.test_runner.backend`: `rspec` if `gem 'rspec-rails'` present, else `minitest`. |
 | `go.mod` | Go project. `run`: `go run .` or check Makefile. `test`: `go test ./...` |
 | `Cargo.toml` | Rust. `run`: `cargo run`. `test`: `cargo test` |
-| `requirements.txt` / `pyproject.toml` | Python. Check for Django/Flask/FastAPI. |
+| `requirements.txt` / `pyproject.toml` | Python. Check for Django/Flask/FastAPI. For `conventions.test_runner.backend`: pytest if `pytest` listed; else `unittest`. |
 | `Makefile` | Check for `dev`, `run`, `test` targets. |
-| `docker-compose.yml` | Note: "Uses Docker Compose" in description. `run`: `docker compose up`. |
+| `docker-compose.yml` | Note: "Uses Docker Compose" in description. `run`: `docker compose up`. For `conventions.app_root`: read service `working_dir`. |
+| `Dockerfile` | For `conventions.app_root`: read `WORKDIR`. |
 | `.env` / `.env.example` | Note port if `PORT=` is defined. |
+| Directory scan | For `conventions.directory_layout`: walk top-level dirs to verify keys like `app/graphql/resolvers/`, `app/workers/`, `src/components/`, `src/locales/`. Only record what exists. |
 
 Present detected values and ask user to confirm or adjust.
 

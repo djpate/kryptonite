@@ -11,12 +11,29 @@ const { values } = parseArgs({
   },
 });
 
-const phase = parseInt(values.phase, 10);
+const rawPhase = values.phase;
 const dataPath = values["data-path"];
 
-if (!phase || !dataPath) {
+if (!rawPhase || !dataPath) {
   console.error("Usage: node validate-gate.js --phase <N> --data-path <path-to-epic-dir>");
+  console.error("       Phase may be an integer (e.g. 8) or a fractional inter-phase gate (e.g. 7.5)");
   process.exit(2);
+}
+
+// Phase may be an integer (8 → 08.json) or a fractional inter-phase gate
+// (7.5 → 07_5.json). Internally we keep `phase` as a number for the
+// semantic-check ordering logic; `phaseFile` is just the filename slug.
+const phase = Number(rawPhase);
+if (!Number.isFinite(phase) || phase <= 0) {
+  console.error(`Invalid --phase value: ${rawPhase}`);
+  process.exit(2);
+}
+
+function phaseFilename(p) {
+  if (Number.isInteger(p)) return String(p).padStart(2, "0");
+  // Fractional → split int+frac and join with underscore (7.5 → "07_5").
+  const [intPart, fracPart] = String(p).split(".");
+  return `${intPart.padStart(2, "0")}_${fracPart}`;
 }
 
 const scriptsDir = path.dirname(new URL(import.meta.url).pathname);
@@ -44,7 +61,8 @@ const packageJson = loadJSON(path.join(pluginRoot, "package.json"));
 const currentVersion = packageJson?.version || "0.0.0";
 const epicVersion = epic?.kryptonite_version || null;
 
-const schemaFile = path.join(gatesDir, `${String(phase).padStart(2, "0")}.json`);
+const phaseSlug = phaseFilename(phase);
+const schemaFile = path.join(gatesDir, `${phaseSlug}.json`);
 if (!fs.existsSync(schemaFile)) {
   console.error(`No gate schema found for phase ${phase}: ${schemaFile}`);
   process.exit(2);
@@ -80,9 +98,9 @@ function compareSemver(a, b) {
 
 const supplementalSchemas = [];
 if (epicVersion) {
-  const phasePrefix = `${String(phase).padStart(2, "0")}.`;
+  const phasePrefix = `${phaseSlug}.`;
   const candidates = fs.readdirSync(gatesDir)
-    .filter((f) => f.startsWith(phasePrefix) && f.endsWith(".json") && f !== `${String(phase).padStart(2, "0")}.json`);
+    .filter((f) => f.startsWith(phasePrefix) && f.endsWith(".json") && f !== `${phaseSlug}.json`);
 
   for (const candidate of candidates) {
     const versionPart = candidate.slice(phasePrefix.length, -".json".length);

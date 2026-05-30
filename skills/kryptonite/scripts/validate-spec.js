@@ -31,6 +31,7 @@ ajv.addSchema(storySchema, "story-schema.json");
 const validate = ajv.compile(specSchema);
 const valid = validate(spec);
 const errors = [];
+const warnings = [];
 
 if (!valid) {
   for (const err of validate.errors) {
@@ -212,6 +213,41 @@ function semanticChecks() {
       }
     }
   }
+
+  // 10. Data-model ownership conflict (WARNING, heuristic).
+  // Catches the latent contradiction where an entity is described as "account-less /
+  // global / shared / ownerless" but still carries a non-nullable owner reference — the
+  // class of bug (US-039/US-040 "library scenario") that stays hidden from Phase 8 until
+  // parallel Phase-12 coders trip over it. Heuristic on description/field text; warning
+  // only — the Spec Critic makes the judgment call.
+  const OWNERLESS = /\b(account-?less|ownerless|global|shared|system-?wide|tenant-?less)\b/i;
+  const OWNER_FIELD = /\b(account|owner|tenant|organization|org|user)(_id)?\b/i;
+  const isNullable = (constraints) => {
+    const c = (constraints || []).map((x) => String(x).toLowerCase());
+    return c.some((x) => x.includes("null") && !x.includes("not null") && !x.includes("not_null"))
+      || c.includes("optional") || c.includes("nullable");
+  };
+  const isRequired = (constraints) => {
+    const c = (constraints || []).map((x) => String(x).toLowerCase());
+    return c.includes("required") || c.includes("not null") || c.includes("not_null") || c.includes("non_null");
+  };
+  for (const [eIdx, entity] of spec.data_model.entities.entries()) {
+    const ownerless = OWNERLESS.test(entity.description || "")
+      || (entity.fields || []).some((f) => OWNERLESS.test((f.constraints || []).join(" ")));
+    if (!ownerless) continue;
+    for (const [fIdx, f] of (entity.fields || []).entries()) {
+      const isOwnerRef = (f.type === "ref" || OWNER_FIELD.test(f.name)) && OWNER_FIELD.test(f.name);
+      if (isOwnerRef && isRequired(f.constraints) && !isNullable(f.constraints)) {
+        warnings.push({
+          layer: "semantic",
+          path: `$.data_model.entities[${eIdx}].fields[${fIdx}]`,
+          rule: "data_model_ownership_conflict",
+          message: `Entity '${entity.id}' is described as account-less/global/shared but its field '${f.name}' is a required (non-nullable) owner reference. A record that has no owner cannot satisfy a NOT NULL owner column.`,
+          suggestion: `Make '${f.name}' nullable, or correct the entity description if it is in fact always owned. Resolve before Phase 12 — this contradiction otherwise surfaces as parallel coders inventing incompatible representations.`,
+        });
+      }
+    }
+  }
 }
 
 // Only run semantic checks if spec is structurally valid enough
@@ -220,6 +256,6 @@ if (spec.stories && spec.architecture && spec.repos && spec.parties && spec.data
 }
 
 // --- Output ---
-const output = { valid: errors.length === 0, errors };
+const output = { valid: errors.length === 0, errors, warnings };
 console.log(JSON.stringify(output, null, 2));
 process.exit(errors.length === 0 ? 0 : 1);

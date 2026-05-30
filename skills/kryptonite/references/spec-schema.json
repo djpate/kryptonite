@@ -93,8 +93,8 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^[a-z][a-z0-9-]*$",
-            "description": "Unique kebab-case identifier for this party."
+            "pattern": "^[a-z][a-z0-9_-]*$",
+            "description": "Unique identifier for this party. Allowed characters: lowercase letters, digits, `-`, `_`. Whatever shape Phase 4 captured (e.g. `account_admin` or `account-admin`) must be reused verbatim in `stories[].party` — there is no remap."
           },
           "name": {
             "type": "string",
@@ -682,6 +682,25 @@
               "pattern": "^US-\\d{3,}[a-z]?$"
             },
             "description": "Story IDs whose implementation is informed by this finding."
+          }
+        }
+      }
+    },
+    "preflight_requirements": {
+      "type": "array",
+      "description": "Human-gated prerequisites lifted from plan.json so the spec reader sees them. Schema mirrors plan-schema.json `preflight_requirements[]`. Optional — only present if the plan has them.",
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "kind", "owner", "blocks_waves"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string", "pattern": "^PREFLIGHT-\\d{3}$" },
+          "description": { "type": "string", "minLength": 10 },
+          "kind": { "type": "string" },
+          "owner": { "type": "string", "minLength": 1 },
+          "blocks_waves": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^wave-\\d+$" }
           }
         }
       }
