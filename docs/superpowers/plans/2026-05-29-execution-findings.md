@@ -124,8 +124,8 @@ exactly one comma separates the two properties):
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^(WAVE\\d+|EPIC)-FINDING-\\d{3,}$",
-            "description": "Stable id. Wave-scoped: WAVE<N>-FINDING-NNN. Epic-scoped (not tied to one wave): EPIC-FINDING-NNN."
+            "pattern": "^WAVE\\d+-FINDING-\\d{3,}$",
+            "description": "Stable id, scoped to the wave that produced the finding: WAVE<N>-FINDING-NNN."
           },
           "category": {
             "type": "string",
@@ -474,7 +474,7 @@ The orchestrator is the **sole writer** of `epic.json.findings[]`. Subagents nev
    (`epic.json.decisions[]`), or a repo convention (`repos.json[].conventions`) is NOT recorded
    again. Recurring restatements are a signal to consolidate, not to append — the store must stay
    small enough that the resume digest is useful.
-4. Assign `id` (`WAVE<N>-FINDING-NNN`, or `EPIC-FINDING-NNN` if not tied to one wave), set
+4. Assign `id` (`WAVE<N>-FINDING-NNN`, scoped to the producing wave), set
    `audience` from the category default (override if warranted), set `resolution`.
 5. For `regression_risk` findings, set `forward_to_waves[]` to the wave(s) that touch the flagged
    files (read `plan.json` wave assignments). The resume digest surfaces these to the named waves.
@@ -822,7 +822,7 @@ In `references/schema-changelog.json`, add this as the FIRST element of the `"ve
       "type": "added",
       "target": "epic-schema.json",
       "field": "findings[]",
-      "description": "Durable Phase-12 execution discoveries. Each entry: id (^(WAVE\\d+|EPIC)-FINDING-\\d{3,}$), category (process|repo_gotcha|spec_gap|regression_risk|deferred_defect), audience[] (orchestrator|coder|gate|human), wave_id, summary, resolution (open|fixed|deferred|dismissed|promoted), plus optional source/story/repo/file/severity/owner_followup/commit/forward_to_waves[]/promotion_target/created_at. Formalizes the ad-hoc state.json.deferred_findings[] the orchestrator had been inventing with no schema. Agent-nominated + orchestrator-curated; escalations auto-capture. Resume builds its digest from this array."
+      "description": "Durable Phase-12 execution discoveries. Each entry: id (^WAVE\\d+-FINDING-\\d{3,}$), category (process|repo_gotcha|spec_gap|regression_risk|deferred_defect), audience[] (orchestrator|coder|gate|human), wave_id, summary, resolution (open|fixed|deferred|dismissed|promoted), plus optional source/story/repo/file/severity/owner_followup/commit/forward_to_waves[]/promotion_target/created_at. Formalizes the ad-hoc state.json.deferred_findings[] the orchestrator had been inventing with no schema. Agent-nominated + orchestrator-curated; escalations auto-capture. Resume builds its digest from this array."
     },
     {
       "type": "added",
