@@ -8,7 +8,7 @@
   <br/><br/>
 
   [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-7c3aed?style=flat-square)](https://github.com/djpate/kryptonite)
-  [![Version](https://img.shields.io/badge/version-0.6.0-10b981?style=flat-square)](https://github.com/djpate/kryptonite/releases)
+  [![Version](https://img.shields.io/badge/version-0.10.0-10b981?style=flat-square)](https://github.com/djpate/kryptonite/releases)
   [![License: MIT](https://img.shields.io/badge/license-MIT-64748b?style=flat-square)](LICENSE)
   [![Agents](https://img.shields.io/badge/agents-14-6366f1?style=flat-square)](#agent-architecture)
   [![Phases](https://img.shields.io/badge/phases-12-f59e0b?style=flat-square)](#how-it-works--12-phase-workflow)

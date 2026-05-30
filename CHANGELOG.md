@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.10.0 — Execution Findings Store + Resume Digest
+
+Phase 12 teaches the orchestrator things no upstream phase could: which fix strategies worked, repo traps discovered live, places the spec was ambiguous, defects deferred for later, and risks the next wave must watch. Before this release that knowledge had no home — the orchestrator had quietly invented an ad-hoc `state.json.deferred_findings[]` (with no schema), and resuming a new wave meant the user hand-typing an ever-growing "handoff prompt" to carry the context forward. This release gives those discoveries a durable, schema-backed home and makes the orchestrator print the handoff itself.
+
+### What was wrong
+
+- **Discoveries had no schema slot.** The orchestrator accumulated `state.json.deferred_findings[]` — exactly the "recurring urge to add a sidecar means the schema needs a field" signal from the Discipline table, made concrete with 19 live entries on a real epic.
+- **The resumed orchestrator never loaded the user's hard-won execution rules.** They lived in the user's per-repo auto-memory, which only loads when CWD is that repo — but the orchestrator runs from the plugin dir. So the rules were re-typed into the prompt every resume.
+- **A findings store alone wouldn't shrink the prompt.** The other half of the cost was operational: status, what-lives-where, and bookkeeping warnings the user re-typed because nothing reconstructed them on resume.
+
+### What changed
+
+**`epic.json.findings[]` — the durable store (`epic-schema.json`).** A new top-level array, beside `decisions[]`/`scope_history[]`, replacing the ad-hoc `state.deferred_findings[]`. Each finding carries `id` (`WAVE<N>-FINDING-NNN`), `category` (`process` | `repo_gotcha` | `spec_gap` | `regression_risk` | `deferred_defect`), `audience[]` (`orchestrator` | `coder` | `gate` | `human`), `wave_id`, `summary`, `resolution` (`open` | `fixed` | `deferred` | `dismissed` | `promoted`), and optional `severity`/`story`/`file`/`source`/`owner_followup`/`commit`/`forward_to_waves[]`/`promotion_target`. `category` + `audience` make it sliceable per consumer; `forward_to_waves[]` turns a "watch this in the next wave" note into data.
+
+**Capture — three paths, one writer (`execution-protocol.md`).** The orchestrator stays the sole writer; subagents only nominate. (1) Every gate report may carry an optional `candidate_findings[]` (`wave-gate-report-schema.json`); coders nominate via a `CANDIDATE_FINDINGS:` text block (`coder.md`). (2) Before any user-pausing escalation (attempt-3, blocked gate, `NEEDS_CONTEXT` halt, end-of-wave-action failure) the orchestrator writes a finding first — a deterministic trigger so the highest-value lessons can't be lost. (3) The user can flag one inline.
+
+**Curation + promotion (`execution-protocol.md`, `orchestrator.md`).** At each wave-complete the orchestrator collects nominations, dedups against existing findings, drops anything already covered by a finding/ADR/convention (anti-junk-drawer), assigns ids, and forwards regression risks. Durable `repo_gotcha` findings are **promoted** (user-confirmed) into `repos.json[].conventions.test_data_gotchas[]`/`grep_gotchas[]` so future epics inherit them and the rules stop living only in CWD-gated memory.
+
+**Resume digest + self-heal (`storage-protocol.md`, `orchestrator.md`).** On a Phase-12 resume the orchestrator now self-heals (`reconcileState`: materialize **only** the next wave if the plan has it but state lacks it; backfill `gate_runs[]` from on-disk report files — idempotent), then **prints** the handoff from disk: decisions-needed (open human-audience findings), forwarded-to-this-wave (regression risks), repo-conventions-in-play, and the next action. The user's resume prompt collapses to roughly *"Resume `<epic>`, begin wave N."*
+
+**Findings-shape gate (`scripts/phase-gates/12.0.10.0.json`).** A version-gated supplement: when `epic.findings[]` is present each entry must be well-formed (reuses `epic-schema.json#/properties/findings/items` via `$ref`). Findings are **never required** — a wave may produce none — so the gate only constrains entries that exist, and only for epics stamped 0.10.0+.
+
+### New files
+
+- `skills/kryptonite/scripts/phase-gates/12.0.10.0.json`
+- `skills/kryptonite/scripts/validate-gate.test.js` — 4 `node:test` cases (well-formed passes, malformed id fails, no-findings passes, pre-0.10.0 epic not held to the gate)
+
+### Migration from 0.9.0
+
+Non-breaking. 0.9.0 epics resume cleanly — `findings[]` is optional (absent = prior behavior), `candidate_findings[]` on gate reports is optional, and the supplemental gate only fires on entries that exist in 0.10.0+ epics. The validator does not auto-migrate an existing `state.deferred_findings[]`; move those entries to `epic.json.findings[]` when convenient (map `id`/`source`/`severity`/`story`/`file`/`summary`/`resolution`/`owner_followup`/`commit` 1:1, add `category`/`audience`/`wave_id`), then delete `state.deferred_findings[]`, and promote durable repo facts into `repos.json` conventions. The live `readiness-v2` epic was migrated this way as the worked example.
+
 ## 0.9.0 — Phase-12 Speed: One Pipeline, Cheaper Fix Loop
 
 Phase 12 was "hours per wave." This release simplifies and speeds it without weakening a single gate. The biggest speed lever — reducing how *often* a wave hits the fix loop — already shipped in 0.8.0 (pre-dispatch reconciliation via `shared_artifacts[]`); this release assumes that lever and attacks the structural and per-iteration costs around it.
