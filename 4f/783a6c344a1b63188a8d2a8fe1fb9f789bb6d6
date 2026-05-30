@@ -1,0 +1,74 @@
+skills/kryptonite/scripts/validate-gate.js
+  s_51f223526ac7e6::t_8c51b1a3370b1b 14,17,19,23-36
+  s_51f223526ac7e6::t_1c024079656168 64-65
+  s_51f223526ac7e6::t_f953077eff439d 101,103
+skills/kryptonite/scripts/test-fixtures/minimal-spec.json
+  s_51f223526ac7e6::t_fc17e1b8b81ebb 97-98
+skills/kryptonite/scripts/phase-gates/07_5.json
+  s_51f223526ac7e6::t_a81478cda5a5f5 1-2,5-11,13-18,20-26,28-31
+  s_51f223526ac7e6::t_7d55b90115d440 3-4,12,19,27
+skills/kryptonite/references/spec-versioning.md
+  s_51f223526ac7e6::t_c3a0dc28cfb663 7,9-11,17,21-22,27-40
+skills/kryptonite/scripts/validate-plan.js
+  s_51f223526ac7e6::t_e305f4962982fb 266-295
+  s_51f223526ac7e6::t_0533ffc5fcb013 447
+  s_51f223526ac7e6::t_71af1d204bb22d 36
+  s_51f223526ac7e6::t_bb802f80b9808d 391-398,407-408,418,420,422-425,428-438
+  s_51f223526ac7e6::t_be811746b94fc1 10,13
+  s_51f223526ac7e6::t_f155dc2afbd87a 316-390,399-406,409-417,419,421,426-427,439
+  s_51f223526ac7e6::t_5098a7ce678ec9 26
+skills/kryptonite/references/repos-schema.json
+  s_51f223526ac7e6::t_aba0f302dd4df7 112-116
+  s_51f223526ac7e6::t_10ee5d2427a63f 30-48,50-82,105-111
+  s_51f223526ac7e6::t_f1179ce48f4955 49
+  s_51f223526ac7e6::t_f86723619816d0 24-29
+  s_51f223526ac7e6::t_a7e9f14a2b6792 83-104
+skills/kryptonite/scripts/validate-spec.js
+  s_51f223526ac7e6::t_cdb4e4cd5a136c 259
+  s_51f223526ac7e6::t_c504bc14bdf093 34
+  s_51f223526ac7e6::t_178ad0e090d99e 216-250
+skills/kryptonite/scripts/phase-gates/07_5.0.7.0.json
+  s_51f223526ac7e6::t_87a9a8013365f7 1-62
+skills/kryptonite/references/plan-schema.json
+  s_51f223526ac7e6::t_c4433863d445fd 277-316
+  s_51f223526ac7e6::t_2ff2b60619f8a5 559-627
+  s_51f223526ac7e6::t_0e827c8bc28e8c 348-386
+  s_51f223526ac7e6::t_a4a86016118a8c 431,439-454,459-460,462-472
+  s_51f223526ac7e6::t_cc7a9f9d84eca8 317-347
+skills/kryptonite/references/spec-assembly.md
+  s_51f223526ac7e6::t_86fbba4a5bb265 1-79,81,84,88-100
+  s_51f223526ac7e6::t_36c4adb4588734 80,82-83,85-87
+skills/kryptonite/scripts/phase-gates/08.json
+  s_51f223526ac7e6::t_ebf67871a60dd0 4,26,64-65,68
+skills/kryptonite/references/spec-schema.json
+  s_51f223526ac7e6::t_1b62a247b653bb 689-707
+  s_51f223526ac7e6::t_22de4ff33a7943 96-97
+skills/kryptonite/agents/designer.md
+  s_51f223526ac7e6::t_00550ac623d0be 64
+  s_51f223526ac7e6::t_649b805afbc6fe 126
+  s_51f223526ac7e6::t_49fd60f58b8688 96
+skills/repos/SKILL.md
+  s_51f223526ac7e6::t_044e265bd0caea 79-80,83,85-86,88
+  s_51f223526ac7e6::t_9574f3de96067c 63-69
+skills/kryptonite/agents/interviewer.md
+  s_51f223526ac7e6::t_0795a2fb7c9c6b 46-56
+  s_51f223526ac7e6::t_51c275ecbf3e5d 57-58
+skills/kryptonite/agents/plan-critic.md
+  s_51f223526ac7e6::t_a61c31970e9a38 129-140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "4f783a6c344a1b63188a8d2a8fe1fb9f789bb6d6",
+  "prompts": {},
+  "sessions": {
+    "s_51f223526ac7e6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b41cf13-5677-4909-ba4f-9bc620f9958e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Christophe <christophev@knowbe4.com>"
+    }
+  }
+}
